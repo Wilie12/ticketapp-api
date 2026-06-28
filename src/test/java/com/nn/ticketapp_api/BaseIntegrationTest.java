@@ -6,7 +6,6 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
@@ -14,9 +13,12 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 @Testcontainers
 public class BaseIntegrationTest {
 
-    @Container
     @ServiceConnection
     static PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:16-alpine");
+
+    static {
+        postgres.start();
+    }
 
     @MockitoBean
     protected JwtDecoder jwtDecoder;
