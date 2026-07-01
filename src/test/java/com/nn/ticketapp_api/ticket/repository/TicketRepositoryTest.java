@@ -44,7 +44,6 @@ public class TicketRepositoryTest extends BaseIntegrationTest {
         Ticket oldTicket = Ticket.createNew(
                 "INC0000001", "Old", "Desc", TicketPriority.LOW, targetCreatorId, teamId);
         ticketRepository.saveAndFlush(oldTicket);
-        // TODO - check if needed
         Thread.sleep(10);
 
         Ticket newTicket = Ticket.createNew(
