@@ -6,6 +6,7 @@ import com.nn.ticketapp_api.ticket.api.response.TicketDetailsResponse;
 import com.nn.ticketapp_api.ticket.api.response.TicketResponse;
 import com.nn.ticketapp_api.ticket.domain.Ticket;
 import com.nn.ticketapp_api.ticket.exception.TicketNotFoundException;
+import com.nn.ticketapp_api.ticket.exception.TicketOwnershipException;
 import com.nn.ticketapp_api.ticket.repository.TicketRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -56,11 +57,17 @@ public class TicketService {
     }
 
     @Transactional(readOnly = true)
-    public TicketDetailsResponse getTicketDetails(UUID ticketId) {
+    public TicketDetailsResponse getTicketDetails(UUID ticketId, UUID requesterId) {
         log.debug("Retrieving ticket details for ticket ID: {}", ticketId);
 
         Ticket ticket = ticketRepository.findById(ticketId)
                 .orElseThrow(() -> new TicketNotFoundException(ticketId));
+
+        if (!ticket.isOwnedBy(requesterId)) {
+            log.warn("Security violation: User {} attempted to access ticket {} owned by user {}",
+                    requesterId, ticketId, ticket.getCreatorId());
+            throw new TicketOwnershipException(ticketId, requesterId);
+        }
 
         return ticketMapper.toDetailsResponse(ticket);
     }

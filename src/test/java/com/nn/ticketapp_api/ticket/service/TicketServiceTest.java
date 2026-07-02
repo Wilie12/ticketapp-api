@@ -109,12 +109,13 @@ public class TicketServiceTest {
     @DisplayName("Should return ticket details when ticket exists")
     void shouldReturnTicketDetails() {
         UUID ticketId = UUID.randomUUID();
+        UUID creatorId = UUID.randomUUID();
         Ticket ticket = Ticket.createNew(
                 "INC0000001",
                 "Test ticket",
                 "Desc",
                 TicketPriority.LOW,
-                UUID.randomUUID(),
+                creatorId,
                 UUID.randomUUID()
         );
         TicketDetailsResponse expectedResponse = new TicketDetailsResponse(
@@ -132,7 +133,7 @@ public class TicketServiceTest {
         given(ticketRepository.findById(ticketId)).willReturn(Optional.of(ticket));
         given(ticketMapper.toDetailsResponse(ticket)).willReturn(expectedResponse);
 
-        TicketDetailsResponse actualResponse = ticketService.getTicketDetails(ticketId);
+        TicketDetailsResponse actualResponse = ticketService.getTicketDetails(ticketId, creatorId);
 
         assertThat(actualResponse).isNotNull();
         assertThat(actualResponse.ticketNumber()).isEqualTo("INC0000001");
@@ -144,9 +145,10 @@ public class TicketServiceTest {
     @DisplayName("Should throw TicketNotFoundException when ticket does not exist")
     void shouldThrowExceptionWhenTicketNotFound() {
         UUID ticketId = UUID.randomUUID();
+        UUID creatorId = UUID.randomUUID();
         given(ticketRepository.findById(ticketId)).willReturn(Optional.empty());
 
-        Throwable thrown = catchThrowable(() -> ticketService.getTicketDetails(ticketId));
+        Throwable thrown = catchThrowable(() -> ticketService.getTicketDetails(ticketId, creatorId));
 
         assertThat(thrown)
                 .isInstanceOf(TicketNotFoundException.class)

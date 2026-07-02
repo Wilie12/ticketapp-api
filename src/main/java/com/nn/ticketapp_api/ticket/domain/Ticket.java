@@ -61,6 +61,10 @@ public class Ticket {
     @Column(name = "resolved_at")
     private Instant resolvedAt;
 
+    public boolean isOwnedBy(UUID userId) {
+        return this.creatorId.equals(userId);
+    }
+
     public static Ticket createNew(String ticketNumber, String title, String description,
                                    TicketPriority priority, UUID creatorId, UUID assignedTeamId) {
         return Ticket.builder()
