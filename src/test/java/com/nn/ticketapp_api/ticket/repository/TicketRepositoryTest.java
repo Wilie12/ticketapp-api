@@ -41,17 +41,32 @@ public class TicketRepositoryTest extends BaseIntegrationTest {
         UUID otherCreatorId = UUID.randomUUID();
         UUID teamId = UUID.randomUUID();
 
-        Ticket oldTicket = Ticket.createNew(
-                "INC0000001", "Old", "Desc", TicketPriority.LOW, targetCreatorId, teamId);
+        Ticket oldTicket = buildTicket(
+                "INC0000001",
+                TicketStatus.NEW,
+                targetCreatorId,
+                teamId,
+                null
+        );
         ticketRepository.saveAndFlush(oldTicket);
         Thread.sleep(10);
 
-        Ticket newTicket = Ticket.createNew(
-                "INC0000002", "New", "Desc", TicketPriority.HIGH, targetCreatorId, teamId);
+        Ticket newTicket = buildTicket(
+                "INC0000002",
+                TicketStatus.NEW,
+                targetCreatorId,
+                teamId,
+                null
+        );
         ticketRepository.saveAndFlush(newTicket);
 
-        Ticket otherTicket = Ticket.createNew(
-                "INC0000003", "Other", "Desc", TicketPriority.MEDIUM, otherCreatorId, teamId);
+        Ticket otherTicket = buildTicket(
+                "INC0000003",
+                TicketStatus.NEW,
+                otherCreatorId,
+                teamId,
+                null
+        );
         ticketRepository.saveAndFlush(otherTicket);
 
         List<Ticket> tickets = ticketRepository.findAllByCreatorIdOrderByCreatedAtDesc(targetCreatorId);
@@ -68,22 +83,41 @@ public class TicketRepositoryTest extends BaseIntegrationTest {
         UUID otherTeamId = UUID.randomUUID();
         UUID creatorId = UUID.randomUUID();
 
-        Ticket firstQueueTicket = Ticket.createNew(
-                "INC0000001", "T1", "Desc", TicketPriority.LOW, creatorId, targetTeamId);
+        Ticket firstQueueTicket = buildTicket(
+                "INC0000001",
+                TicketStatus.NEW,
+                creatorId,
+                targetTeamId,
+                null
+        );
         ticketRepository.saveAndFlush(firstQueueTicket);
         Thread.sleep(10);
 
-        Ticket secondQueueTicket = Ticket.createNew(
-                "INC0000002", "T2", "Desc", TicketPriority.LOW, creatorId, targetTeamId);
+        Ticket secondQueueTicket = buildTicket(
+                "INC0000002",
+                TicketStatus.NEW,
+                creatorId,
+                targetTeamId,
+                null
+        );
         ticketRepository.saveAndFlush(secondQueueTicket);
 
-        Ticket assignedTicket = Ticket.createNew(
-                "INC0000003", "T3", "Desc", TicketPriority.LOW, creatorId, targetTeamId);
-        assignedTicket.setAssignedAgentId(UUID.randomUUID());
+        Ticket assignedTicket = buildTicket(
+                "INC0000003",
+                TicketStatus.IN_PROGRESS,
+                creatorId,
+                targetTeamId,
+                UUID.randomUUID()
+        );
         ticketRepository.saveAndFlush(assignedTicket);
 
-        Ticket otherTeamTicket = Ticket.createNew(
-                "INC0000004", "T4", "Desc", TicketPriority.LOW, creatorId, otherTeamId);
+        Ticket otherTeamTicket = buildTicket(
+                "INC0000004",
+                TicketStatus.NEW,
+                creatorId,
+                otherTeamId,
+                null
+        );
         ticketRepository.saveAndFlush(otherTeamTicket);
 
         List<Ticket> queue = ticketRepository.findByStatusAndAssignedTeamIdAndAssignedAgentIdIsNullOrderByCreatedAtAsc(
@@ -102,23 +136,32 @@ public class TicketRepositoryTest extends BaseIntegrationTest {
         UUID creatorId = UUID.randomUUID();
         UUID teamId = UUID.randomUUID();
 
-        Ticket inProgressTicket = Ticket.createNew(
-                "INC0000001", "T1", "Desc", TicketPriority.LOW, creatorId, teamId);
-        inProgressTicket.setAssignedAgentId(agentId);
-        inProgressTicket.setStatus(TicketStatus.IN_PROGRESS);
+        Ticket inProgressTicket = buildTicket(
+                "INC0000001",
+                TicketStatus.IN_PROGRESS,
+                creatorId,
+                teamId,
+                agentId
+        );
         ticketRepository.saveAndFlush(inProgressTicket);
         Thread.sleep(10);
 
-        Ticket resolvedTicket = Ticket.createNew(
-                "INC0000002", "T2", "Desc", TicketPriority.LOW, creatorId, teamId);
-        resolvedTicket.setAssignedAgentId(agentId);
-        resolvedTicket.setStatus(TicketStatus.RESOLVED);
+        Ticket resolvedTicket = buildTicket(
+                "INC0000002",
+                TicketStatus.RESOLVED,
+                creatorId,
+                teamId,
+                agentId
+        );
         ticketRepository.saveAndFlush(resolvedTicket);
 
-        Ticket closedTicket = Ticket.createNew(
-                "INC0000003", "T3", "Desc", TicketPriority.LOW, creatorId, teamId);
-        closedTicket.setAssignedAgentId(agentId);
-        closedTicket.setStatus(TicketStatus.CLOSED);
+        Ticket closedTicket = buildTicket(
+                "INC0000003",
+                TicketStatus.CLOSED,
+                creatorId,
+                teamId,
+                agentId
+        );
         ticketRepository.saveAndFlush(closedTicket);
 
         List<TicketStatus> activeStatuses = List.of(TicketStatus.IN_PROGRESS, TicketStatus.RESOLVED);
@@ -140,17 +183,23 @@ public class TicketRepositoryTest extends BaseIntegrationTest {
         UUID teamId = UUID.randomUUID();
 
         for (int i = 0; i < 3; i++) {
-            Ticket resolvedTicket = Ticket.createNew(
-                    "INC" + i, "T" + i, "Desc", TicketPriority.LOW, creatorId, teamId);
-            resolvedTicket.setAssignedAgentId(agentId);
-            resolvedTicket.setStatus(TicketStatus.RESOLVED);
+            Ticket resolvedTicket = buildTicket(
+                    "INC" + i,
+                    TicketStatus.RESOLVED,
+                    creatorId,
+                    teamId,
+                    agentId
+            );
             ticketRepository.saveAndFlush(resolvedTicket);
         }
 
-        Ticket inProgressTicket = Ticket.createNew(
-                "INC0000001", "T1", "Desc", TicketPriority.LOW, creatorId, teamId);
-        inProgressTicket.setAssignedAgentId(agentId);
-        inProgressTicket.setStatus(TicketStatus.IN_PROGRESS);
+        Ticket inProgressTicket = buildTicket(
+                "INC0000001",
+                TicketStatus.IN_PROGRESS,
+                creatorId,
+                teamId,
+                agentId
+        );
         ticketRepository.saveAndFlush(inProgressTicket);
 
         long resolvedCount = ticketRepository.countByAssignedAgentIdAndStatus(agentId, TicketStatus.RESOLVED);
@@ -160,5 +209,24 @@ public class TicketRepositoryTest extends BaseIntegrationTest {
         assertThat(resolvedCount).isEqualTo(3);
         assertThat(inProgressCount).isEqualTo(1);
         assertThat(newCount).isEqualTo(0);
+    }
+
+    private Ticket buildTicket(
+            String ticketNumber,
+            TicketStatus ticketStatus,
+            UUID creatorId,
+            UUID teamId,
+            UUID agentId
+    ) {
+        return Ticket.builder()
+                .ticketNumber(ticketNumber)
+                .title("Title for " + ticketNumber)
+                .description("Test description")
+                .priority(TicketPriority.LOW)
+                .status(ticketStatus)
+                .creatorId(creatorId)
+                .assignedTeamId(teamId)
+                .assignedAgentId(agentId)
+                .build();
     }
 }
