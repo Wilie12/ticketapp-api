@@ -1,5 +1,7 @@
 package com.nn.ticketapp_api.ticket.domain;
 
+import com.nn.ticketapp_api.ticket.exception.InvalidStatusTransitionException;
+import com.nn.ticketapp_api.ticket.exception.TicketClosedException;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -10,7 +12,6 @@ import java.util.UUID;
 @Entity
 @Table(name = "tickets")
 @Getter
-@Setter
 @NoArgsConstructor
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder
@@ -19,11 +20,9 @@ public class Ticket {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @EqualsAndHashCode.Include
-    @Setter(AccessLevel.NONE)
     private UUID id;
 
     @Column(name = "ticket_number", nullable = false, unique = true, updatable = false)
-    @Setter(AccessLevel.NONE)
     private String ticketNumber;
 
     @Column(nullable = false)
@@ -52,7 +51,6 @@ public class Ticket {
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
-    @Setter(AccessLevel.NONE)
     private Instant createdAt;
 
     @Column(name = "sla_deadline")
@@ -76,5 +74,74 @@ public class Ticket {
                 .creatorId(creatorId)
                 .assignedTeamId(assignedTeamId)
                 .build();
+    }
+
+    public void assignToAgent(UUID agentId) {
+        if (this.status != TicketStatus.NEW) {
+            throw new InvalidStatusTransitionException(
+                    String.format("Cannot assign ticket in status %s. Only NEW tickets can be assigned.", this.status)
+            );
+        }
+
+        ensureStatusTransitionTo(TicketStatus.IN_PROGRESS);
+        this.assignedAgentId = agentId;
+        this.status = TicketStatus.IN_PROGRESS;
+    }
+
+    public void resolve() {
+        ensureStatusTransitionTo(TicketStatus.RESOLVED);
+        this.status = TicketStatus.RESOLVED;
+        this.resolvedAt = Instant.now();
+    }
+
+    public void close() {
+        ensureStatusTransitionTo(TicketStatus.CLOSED);
+        this.status = TicketStatus.CLOSED;
+    }
+
+    public void reopen() {
+        if (this.status != TicketStatus.RESOLVED) {
+            throw new InvalidStatusTransitionException(
+                    String.format(
+                            "Cannot reopen ticket in status %s. Only RESOLVED tickets can be reopened.",
+                            this.status
+                    )
+            );
+        }
+
+        ensureStatusTransitionTo(TicketStatus.IN_PROGRESS);
+        this.status = TicketStatus.IN_PROGRESS;
+        this.resolvedAt = null;
+    }
+
+    public void updateDetails(String title, TicketPriority priority, UUID targetTeamId) {
+        if (this.status == TicketStatus.CLOSED) {
+            throw new TicketClosedException(
+                    String.format("Ticket %s is CLOSED and cannot be modified.", this.ticketNumber)
+            );
+        }
+
+        if (title != null && !title.isBlank()) {
+            this.title = title;
+        }
+
+        if (priority != null) {
+            this.priority = priority;
+        }
+
+        if (targetTeamId == null || targetTeamId.equals(this.assignedTeamId)) {
+            return;
+        }
+
+        this.assignedTeamId = targetTeamId;
+        this.assignedAgentId = null;
+    }
+
+    private void ensureStatusTransitionTo(TicketStatus targetStatus) {
+        if (!this.status.canTransitionTo(targetStatus)) {
+            throw new InvalidStatusTransitionException(
+                    String.format("Cannot transition ticket from %s to %s.", this.status, targetStatus)
+            );
+        }
     }
 }
