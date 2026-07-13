@@ -2,6 +2,7 @@ package com.nn.ticketapp_api.ticket.service;
 
 import com.nn.ticketapp_api.ticket.api.mapper.TicketMapper;
 import com.nn.ticketapp_api.ticket.api.request.TicketCreateRequest;
+import com.nn.ticketapp_api.ticket.api.request.TicketPatchRequest;
 import com.nn.ticketapp_api.ticket.api.response.TicketDetailsResponse;
 import com.nn.ticketapp_api.ticket.api.response.TicketResponse;
 import com.nn.ticketapp_api.ticket.domain.Ticket;
@@ -60,8 +61,7 @@ public class TicketService {
     public TicketDetailsResponse getTicketDetails(UUID ticketId, UUID requesterId) {
         log.debug("Retrieving ticket details for ticket ID: {}", ticketId);
 
-        Ticket ticket = ticketRepository.findById(ticketId)
-                .orElseThrow(() -> new TicketNotFoundException(ticketId));
+        Ticket ticket = getTicketOrThrow(ticketId);
 
         if (!ticket.isOwnedBy(requesterId)) {
             log.warn("Security violation: User {} attempted to access ticket {} owned by user {}",
@@ -70,5 +70,92 @@ public class TicketService {
         }
 
         return ticketMapper.toDetailsResponse(ticket);
+    }
+
+    @Transactional
+    public TicketResponse assignTicket(UUID ticketId, UUID agentId) {
+        log.debug("Assigning ticket {} to agent {}", ticketId, agentId);
+
+        Ticket ticket = getTicketOrThrow(ticketId);
+        ticket.assignToAgent(agentId);
+
+        log.info("Ticket {} successfully assigned to agent {}", ticket.getTicketNumber(), agentId);
+        return ticketMapper.toResponse(ticket);
+    }
+
+    @Transactional
+    public TicketResponse resolveTicket(UUID ticketId, UUID agentId, String resolutionNote) {
+        log.debug("Resolving ticket {} by agent {}", ticketId, agentId);
+
+        Ticket ticket = getTicketOrThrow(ticketId);
+        ticket.resolve();
+
+        // TODO - add Resolution note in communication module
+
+        log.info("Ticket {} successfully resolved", ticket.getTicketNumber());
+        return ticketMapper.toResponse(ticket);
+    }
+
+    @Transactional
+    public TicketResponse closeTicket(UUID ticketId, UUID requesterId) {
+        log.debug("Closing ticket {} by user {}", ticketId, requesterId);
+
+        Ticket ticket = getTicketOrThrow(ticketId);
+
+        if (!ticket.isOwnedBy(requesterId)) {
+            log.warn(
+                    "Security violation: User {} attempted to close ticket {} without ownership",
+                    requesterId,
+                    ticketId
+            );
+            throw new TicketOwnershipException(ticketId, requesterId);
+        }
+
+        ticket.close();
+
+        log.info("Ticket {} successfully closed", ticket.getTicketNumber());
+        return ticketMapper.toResponse(ticket);
+    }
+
+    @Transactional
+    public TicketResponse reopenTicket(UUID ticketId, UUID requesterId) {
+        log.debug("Reopening ticket {} by user {}", ticketId, requesterId);
+
+        Ticket ticket = getTicketOrThrow(ticketId);
+
+        if (!ticket.isOwnedBy(requesterId)) {
+            log.warn(
+                    "Security violation: User {} attempted to reopen ticket {} without ownership",
+                    requesterId,
+                    ticketId
+            );
+            throw new TicketOwnershipException(ticketId, requesterId);
+        }
+
+        ticket.reopen();
+
+        log.info("Ticket {} successfully reopened", ticket.getTicketNumber());
+        return ticketMapper.toResponse(ticket);
+    }
+
+    @Transactional
+    public TicketResponse updateTicketDetails(UUID ticketId, TicketPatchRequest ticketPatchRequest, UUID agentId) {
+        log.debug("Updating details for ticket {} by agent {}", ticketId, agentId);
+
+        Ticket ticket = getTicketOrThrow(ticketId);
+
+        ticket.updateDetails(
+                ticketPatchRequest.title(),
+                ticketPatchRequest.priority(),
+                ticketPatchRequest.targetTeamId()
+        );
+
+        log.info("Details for ticket {} updated successfully", ticket.getTicketNumber());
+        return ticketMapper.toResponse(ticket);
+    }
+
+    private Ticket getTicketOrThrow(UUID ticketId) {
+        return ticketRepository.findById(ticketId)
+                .orElseThrow(() -> new TicketNotFoundException(ticketId));
     }
 }
