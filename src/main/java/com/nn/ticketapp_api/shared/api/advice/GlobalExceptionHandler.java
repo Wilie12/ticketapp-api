@@ -1,6 +1,8 @@
 package com.nn.ticketapp_api.shared.api.advice;
 
 import com.nn.ticketapp_api.shared.api.response.ErrorResponse;
+import com.nn.ticketapp_api.ticket.exception.InvalidStatusTransitionException;
+import com.nn.ticketapp_api.ticket.exception.TicketClosedException;
 import com.nn.ticketapp_api.ticket.exception.TicketNotFoundException;
 import com.nn.ticketapp_api.ticket.exception.TicketOwnershipException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -75,6 +77,23 @@ public class GlobalExceptionHandler {
                 Instant.now(),
                 HttpStatus.FORBIDDEN.value(),
                 HttpStatus.FORBIDDEN.getReasonPhrase(),
+                e.getMessage(),
+                request.getRequestURI()
+        );
+    }
+
+    @ExceptionHandler({TicketClosedException.class, InvalidStatusTransitionException.class})
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ErrorResponse handleConflictExceptions(
+            RuntimeException e,
+            HttpServletRequest request
+    ) {
+        log.warn("State conflict error on path: {}: {}", request.getRequestURI(), e.getMessage());
+
+        return new ErrorResponse(
+                Instant.now(),
+                HttpStatus.CONFLICT.value(),
+                HttpStatus.CONFLICT.getReasonPhrase(),
                 e.getMessage(),
                 request.getRequestURI()
         );

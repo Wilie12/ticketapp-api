@@ -1,6 +1,8 @@
 package com.nn.ticketapp_api.ticket.controller;
 
+import com.nn.ticketapp_api.ticket.api.request.ResolutionRequest;
 import com.nn.ticketapp_api.ticket.api.request.TicketCreateRequest;
+import com.nn.ticketapp_api.ticket.api.request.TicketPatchRequest;
 import com.nn.ticketapp_api.ticket.api.response.TicketDetailsResponse;
 import com.nn.ticketapp_api.ticket.api.response.TicketResponse;
 import com.nn.ticketapp_api.ticket.service.TicketService;
@@ -55,9 +57,77 @@ public class TicketController {
             @AuthenticationPrincipal Jwt jwt
     ) {
         UUID requesterId = extractUserId(jwt);
+
         log.debug("Received request from user: {} to get ticket with ID: {}", requesterId, ticketId);
 
         return ticketService.getTicketDetails(ticketId, requesterId);
+    }
+
+    @PostMapping("/{id}/assign")
+    @ResponseStatus(HttpStatus.OK)
+    public TicketResponse assignTicket(
+            @PathVariable(name = "id") UUID ticketId,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        UUID agentId = extractUserId(jwt);
+
+        log.debug("Received request to assign ticket {} to agent: {}", ticketId, agentId);
+
+        return ticketService.assignTicket(ticketId, agentId);
+    }
+
+    @PostMapping("/{id}/resolve")
+    @ResponseStatus(HttpStatus.OK)
+    public TicketResponse resolveTicket(
+            @PathVariable(name = "id") UUID ticketId,
+            @RequestBody @Valid ResolutionRequest resolutionRequest,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        UUID agentId = extractUserId(jwt);
+
+        log.debug("Received request to resolve ticket {} by agent: {}", ticketId, agentId);
+
+        return ticketService.resolveTicket(ticketId, agentId, resolutionRequest.resolutionNote());
+    }
+
+    @PostMapping("/{id}/close")
+    @ResponseStatus(HttpStatus.OK)
+    public TicketResponse closeTicket(
+            @PathVariable(name = "id") UUID ticketId,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        UUID requesterId = extractUserId(jwt);
+
+        log.debug("Received request to close ticket {} by user: {}", ticketId, requesterId);
+
+        return ticketService.closeTicket(ticketId, requesterId);
+    }
+
+    @PostMapping("/{id}/reopen")
+    @ResponseStatus(HttpStatus.OK)
+    public TicketResponse reopenTicket(
+            @PathVariable(name = "id") UUID ticketId,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        UUID requesterId = extractUserId(jwt);
+
+        log.debug("Received request to reopen ticket {} by user: {}", ticketId, requesterId);
+
+        return ticketService.reopenTicket(ticketId, requesterId);
+    }
+
+    @PatchMapping("/{id}")
+    @ResponseStatus(HttpStatus.OK)
+    public TicketResponse updateTicketDetails(
+            @PathVariable(name = "id") UUID ticketId,
+            @RequestBody @Valid TicketPatchRequest ticketPatchRequest,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        UUID agentId = extractUserId(jwt);
+
+        log.debug("Received request to update details for ticket {} by agent: {}", ticketId, agentId);
+
+        return ticketService.updateTicketDetails(ticketId, ticketPatchRequest, agentId);
     }
 
     private UUID extractUserId(Jwt jwt) {
