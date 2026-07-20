@@ -54,4 +54,13 @@ public class Communication {
                 .type(CommunicationType.WORK_NOTE)
                 .build();
     }
+
+    public static Communication createSystemEvent(UUID ticketId, UUID authorId, String content) {
+        return Communication.builder()
+                .ticketId(ticketId)
+                .authorId(authorId)
+                .content(content)
+                .type(CommunicationType.SYSTEM_EVENT)
+                .build();
+    }
 }
