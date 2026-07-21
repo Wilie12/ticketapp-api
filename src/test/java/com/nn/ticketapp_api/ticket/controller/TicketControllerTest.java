@@ -19,6 +19,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.ObjectMapper;
@@ -75,7 +76,8 @@ public class TicketControllerTest {
         mockMvc.perform(post("/api/v1/tickets")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
-                        .with(jwt().jwt(builder -> builder.subject(userId.toString()))))
+                        .with(jwt().jwt(builder -> builder.subject(userId.toString()))
+                                .authorities(new SimpleGrantedAuthority("ROLE_USER"))))
                 // then
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.ticketNumber").value("INC0000001"))
@@ -101,7 +103,8 @@ public class TicketControllerTest {
         mockMvc.perform(post("/api/v1/tickets")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(invalidRequest))
-                        .with(jwt().jwt(builder -> builder.subject(userId.toString()))))
+                        .with(jwt().jwt(builder -> builder.subject(userId.toString()))
+                                .authorities(new SimpleGrantedAuthority("ROLE_USER"))))
                 // then
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value(400))
@@ -131,7 +134,8 @@ public class TicketControllerTest {
 
         // when
         mockMvc.perform(get("/api/v1/tickets")
-                        .with(jwt().jwt(builder -> builder.subject(userId.toString()))))
+                        .with(jwt().jwt(builder -> builder.subject(userId.toString()))
+                                .authorities(new SimpleGrantedAuthority("ROLE_USER"))))
                 // then
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.size()").value(1))
@@ -165,7 +169,8 @@ public class TicketControllerTest {
 
         // when
         mockMvc.perform(get("/api/v1/tickets/{id}", ticketId)
-                        .with(jwt().jwt(builder -> builder.subject(requesterId.toString()))))
+                        .with(jwt().jwt(builder -> builder.subject(requesterId.toString()))
+                                .authorities(new SimpleGrantedAuthority("ROLE_USER"))))
                 // then
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(ticketId.toString()))
@@ -187,7 +192,8 @@ public class TicketControllerTest {
 
         // when
         mockMvc.perform(get("/api/v1/tickets/{id}", ticketId)
-                        .with(jwt().jwt(builder -> builder.subject(requesterId.toString()))))
+                        .with(jwt().jwt(builder -> builder.subject(requesterId.toString()))
+                                .authorities(new SimpleGrantedAuthority("ROLE_USER"))))
                 // then
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.status").value(404))
@@ -210,7 +216,8 @@ public class TicketControllerTest {
 
         // when
         mockMvc.perform(get("/api/v1/tickets/{id}", ticketId)
-                        .with(jwt().jwt(builder -> builder.subject(fakeRequesterId.toString()))))
+                        .with(jwt().jwt(builder -> builder.subject(fakeRequesterId.toString()))
+                                .authorities(new SimpleGrantedAuthority("ROLE_USER"))))
                 // then
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.status").value(403))
@@ -241,7 +248,8 @@ public class TicketControllerTest {
 
         // when
         mockMvc.perform(post("/api/v1/tickets/{id}/assign", ticketId)
-                        .with(jwt().jwt(builder -> builder.subject(agentId.toString()))))
+                        .with(jwt().jwt(builder -> builder.subject(agentId.toString()))
+                                .authorities(new SimpleGrantedAuthority("ROLE_AGENT"))))
                 // then
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("IN_PROGRESS"));
@@ -272,7 +280,8 @@ public class TicketControllerTest {
         mockMvc.perform(post("/api/v1/tickets/{id}/resolve", ticketId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
-                        .with(jwt().jwt(builder -> builder.subject(agentId.toString()))))
+                        .with(jwt().jwt(builder -> builder.subject(agentId.toString()))
+                                .authorities(new SimpleGrantedAuthority("ROLE_AGENT"))))
                 // then
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("RESOLVED"));
@@ -295,7 +304,8 @@ public class TicketControllerTest {
         mockMvc.perform(post("/api/v1/tickets/{id}/resolve", ticketId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
-                        .with(jwt().jwt(builder -> builder.subject(agentId.toString()))))
+                        .with(jwt().jwt(builder -> builder.subject(agentId.toString()))
+                                .authorities(new SimpleGrantedAuthority("ROLE_AGENT"))))
                 // then
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.status").value(409))
@@ -322,9 +332,10 @@ public class TicketControllerTest {
 
         // when
         mockMvc.perform(patch("/api/v1/tickets/{id}", ticketId)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(request))
-                .with(jwt().jwt(builder -> builder.subject(agentId.toString()))))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request))
+                        .with(jwt().jwt(builder -> builder.subject(agentId.toString()))
+                                .authorities(new SimpleGrantedAuthority("ROLE_AGENT"))))
                 // then
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.status").value(409))
@@ -355,7 +366,8 @@ public class TicketControllerTest {
 
         // when
         mockMvc.perform(post("/api/v1/tickets/{id}/reopen", ticketId)
-                .with(jwt().jwt(builder -> builder.subject(requesterId.toString()))))
+                        .with(jwt().jwt(builder -> builder.subject(requesterId.toString()))
+                                .authorities(new SimpleGrantedAuthority("ROLE_USER"))))
                 // then
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("IN_PROGRESS"))
@@ -393,7 +405,8 @@ public class TicketControllerTest {
         mockMvc.perform(patch("/api/v1/tickets/{id}", ticketId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
-                        .with(jwt().jwt(builder -> builder.subject(agentId.toString()))))
+                        .with(jwt().jwt(builder -> builder.subject(agentId.toString()))
+                                .authorities(new SimpleGrantedAuthority("ROLE_AGENT"))))
                 // then
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.title").value("New title"));

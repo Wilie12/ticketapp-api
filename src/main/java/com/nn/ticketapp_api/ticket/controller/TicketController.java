@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
@@ -23,6 +24,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/tickets")
 @RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('USER', 'AGENT', 'ADMIN')")
 public class TicketController {
 
     private final TicketService ticketService;
@@ -65,6 +67,7 @@ public class TicketController {
 
     @PostMapping("/{id}/assign")
     @ResponseStatus(HttpStatus.OK)
+    @PreAuthorize("hasAnyRole('AGENT', 'ADMIN')")
     public TicketResponse assignTicket(
             @PathVariable(name = "id") UUID ticketId,
             @AuthenticationPrincipal Jwt jwt
@@ -78,6 +81,7 @@ public class TicketController {
 
     @PostMapping("/{id}/resolve")
     @ResponseStatus(HttpStatus.OK)
+    @PreAuthorize("hasAnyRole('AGENT', 'ADMIN')")
     public TicketResponse resolveTicket(
             @PathVariable(name = "id") UUID ticketId,
             @RequestBody @Valid ResolutionRequest resolutionRequest,
@@ -118,6 +122,7 @@ public class TicketController {
 
     @PatchMapping("/{id}")
     @ResponseStatus(HttpStatus.OK)
+    @PreAuthorize("hasAnyRole('AGENT', 'ADMIN')")
     public TicketResponse updateTicketDetails(
             @PathVariable(name = "id") UUID ticketId,
             @RequestBody @Valid TicketPatchRequest ticketPatchRequest,
