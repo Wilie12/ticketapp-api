@@ -27,9 +27,13 @@ public class TicketRepositoryTest extends BaseIntegrationTest {
     @Test
     @DisplayName("Should fetch the next sequence value from PostgreSQL")
     void shouldFetchNextTicketNumberSequence() {
+        // given (state is managed by the sequence in DB)
+
+        // when
         Long firstValue = ticketRepository.getNextTicketNumberSequence();
         Long secondValue = ticketRepository.getNextTicketNumberSequence();
 
+        // then
         assertThat(firstValue).isNotNull().isPositive();
         assertThat(secondValue).isNotNull().isGreaterThan(firstValue);
     }
@@ -37,6 +41,7 @@ public class TicketRepositoryTest extends BaseIntegrationTest {
     @Test
     @DisplayName("Should return tickets created by a user in descending order (newest first)")
     void shouldFindAllByCreatorIdOrderByCreatedAtDesc() throws InterruptedException {
+        // given
         UUID targetCreatorId = UUID.randomUUID();
         UUID otherCreatorId = UUID.randomUUID();
         UUID teamId = UUID.randomUUID();
@@ -69,8 +74,10 @@ public class TicketRepositoryTest extends BaseIntegrationTest {
         );
         ticketRepository.saveAndFlush(otherTicket);
 
+        // when
         List<Ticket> tickets = ticketRepository.findAllByCreatorIdOrderByCreatedAtDesc(targetCreatorId);
 
+        // then
         assertThat(tickets).hasSize(2);
         assertThat(tickets.get(0).getTicketNumber()).isEqualTo("INC0000002");
         assertThat(tickets.get(1).getTicketNumber()).isEqualTo("INC0000001");
@@ -79,6 +86,7 @@ public class TicketRepositoryTest extends BaseIntegrationTest {
     @Test
     @DisplayName("Should return unassigned tickets for a specific team in ascending order (oldest first)")
     void shouldFindTeamFifoQueue() throws InterruptedException {
+        // given
         UUID targetTeamId = UUID.randomUUID();
         UUID otherTeamId = UUID.randomUUID();
         UUID creatorId = UUID.randomUUID();
@@ -120,10 +128,12 @@ public class TicketRepositoryTest extends BaseIntegrationTest {
         );
         ticketRepository.saveAndFlush(otherTeamTicket);
 
+        // when
         List<Ticket> queue = ticketRepository.findByStatusAndAssignedTeamIdAndAssignedAgentIdIsNullOrderByCreatedAtAsc(
                 TicketStatus.NEW, targetTeamId
         );
 
+        // then
         assertThat(queue).hasSize(2);
         assertThat(queue.get(0).getTicketNumber()).isEqualTo("INC0000001");
         assertThat(queue.get(1).getTicketNumber()).isEqualTo("INC0000002");
@@ -132,6 +142,7 @@ public class TicketRepositoryTest extends BaseIntegrationTest {
     @Test
     @DisplayName("Should return agent's tickets matching specific statuses in descending order")
     void shouldFindAgentBacklogByStatuses() throws InterruptedException {
+        // given
         UUID agentId = UUID.randomUUID();
         UUID creatorId = UUID.randomUUID();
         UUID teamId = UUID.randomUUID();
@@ -165,10 +176,12 @@ public class TicketRepositoryTest extends BaseIntegrationTest {
         ticketRepository.saveAndFlush(closedTicket);
 
         List<TicketStatus> activeStatuses = List.of(TicketStatus.IN_PROGRESS, TicketStatus.RESOLVED);
+        // when
         List<Ticket> backlog = ticketRepository.findAllByAssignedAgentIdAndStatusInOrderByCreatedAtDesc(
                 agentId, activeStatuses
         );
 
+        // then
         assertThat(backlog).hasSize(2);
         assertThat(backlog.get(0).getTicketNumber()).isEqualTo("INC0000002");
         assertThat(backlog.get(1).getTicketNumber()).isEqualTo("INC0000001");
@@ -178,6 +191,7 @@ public class TicketRepositoryTest extends BaseIntegrationTest {
     @Test
     @DisplayName("Should calculate statistics accurately for an agent based on status")
     void shouldCountAgentTicketsByStatus() {
+        // given
         UUID agentId = UUID.randomUUID();
         UUID creatorId = UUID.randomUUID();
         UUID teamId = UUID.randomUUID();
@@ -202,10 +216,12 @@ public class TicketRepositoryTest extends BaseIntegrationTest {
         );
         ticketRepository.saveAndFlush(inProgressTicket);
 
+        // when
         long resolvedCount = ticketRepository.countByAssignedAgentIdAndStatus(agentId, TicketStatus.RESOLVED);
         long inProgressCount = ticketRepository.countByAssignedAgentIdAndStatus(agentId, TicketStatus.IN_PROGRESS);
         long newCount = ticketRepository.countByAssignedAgentIdAndStatus(agentId, TicketStatus.NEW);
 
+        // then
         assertThat(resolvedCount).isEqualTo(3);
         assertThat(inProgressCount).isEqualTo(1);
         assertThat(newCount).isEqualTo(0);

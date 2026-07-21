@@ -3,3 +3,5 @@ databaseChangeLog:
       file: db/changelog/changes/001-initial-ticket-schema.yaml
   - include:
       file: db/changelog/changes/002-fix-ticket-schema.yaml
+  - include:
+      file: db/changelog/changes/003-communication-schema.yaml

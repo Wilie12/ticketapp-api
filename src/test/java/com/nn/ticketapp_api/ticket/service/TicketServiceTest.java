@@ -8,6 +8,7 @@ import com.nn.ticketapp_api.ticket.api.response.TicketResponse;
 import com.nn.ticketapp_api.ticket.domain.Ticket;
 import com.nn.ticketapp_api.ticket.domain.TicketPriority;
 import com.nn.ticketapp_api.ticket.domain.TicketStatus;
+import com.nn.ticketapp_api.ticket.domain.event.TicketResolvedEvent;
 import com.nn.ticketapp_api.ticket.exception.TicketNotFoundException;
 import com.nn.ticketapp_api.ticket.exception.TicketOwnershipException;
 import com.nn.ticketapp_api.ticket.repository.TicketRepository;
@@ -17,6 +18,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.Instant;
 import java.util.List;
@@ -36,6 +38,8 @@ public class TicketServiceTest {
     private TicketRepository ticketRepository;
     @Mock
     private TicketMapper ticketMapper;
+    @Mock
+    private ApplicationEventPublisher applicationEventPublisher;
     @InjectMocks
     private TicketService ticketService;
 
@@ -242,6 +246,7 @@ public class TicketServiceTest {
 
         then(ticketRepository).should().findById(ticketId);
         then(ticketMapper).should().toResponse(ticket);
+        then(applicationEventPublisher).should().publishEvent(any(TicketResolvedEvent.class));
     }
 
     @Test

@@ -6,11 +6,15 @@ import com.nn.ticketapp_api.ticket.api.request.TicketPatchRequest;
 import com.nn.ticketapp_api.ticket.api.response.TicketDetailsResponse;
 import com.nn.ticketapp_api.ticket.api.response.TicketResponse;
 import com.nn.ticketapp_api.ticket.domain.Ticket;
+import com.nn.ticketapp_api.ticket.domain.TicketStatus;
+import com.nn.ticketapp_api.ticket.domain.event.TicketResolvedEvent;
+import com.nn.ticketapp_api.ticket.exception.TicketClosedException;
 import com.nn.ticketapp_api.ticket.exception.TicketNotFoundException;
 import com.nn.ticketapp_api.ticket.exception.TicketOwnershipException;
 import com.nn.ticketapp_api.ticket.repository.TicketRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +28,7 @@ public class TicketService {
 
     private final TicketRepository ticketRepository;
     private final TicketMapper ticketMapper;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public TicketResponse createTicket(TicketCreateRequest ticketCreateRequest, UUID creatorId) {
@@ -90,7 +95,7 @@ public class TicketService {
         Ticket ticket = getTicketOrThrow(ticketId);
         ticket.resolve();
 
-        // TODO - add Resolution note in communication module
+        eventPublisher.publishEvent(new TicketResolvedEvent(ticketId, agentId, resolutionNote));
 
         log.info("Ticket {} successfully resolved", ticket.getTicketNumber());
         return ticketMapper.toResponse(ticket);
@@ -152,6 +157,17 @@ public class TicketService {
 
         log.info("Details for ticket {} updated successfully", ticket.getTicketNumber());
         return ticketMapper.toResponse(ticket);
+    }
+
+    public void ensureTicketIsActive(UUID ticketId) {
+        Ticket ticket = getTicketOrThrow(ticketId);
+
+        if (ticket.getStatus() == TicketStatus.CLOSED) {
+            log.warn("Attempt to modify CLOSED ticket: {}", ticket.getTicketNumber());
+            throw new TicketClosedException(
+                    String.format("Cannot modify or add communication to a CLOSED ticket: %s", ticket.getTicketNumber())
+            );
+        }
     }
 
     private Ticket getTicketOrThrow(UUID ticketId) {
