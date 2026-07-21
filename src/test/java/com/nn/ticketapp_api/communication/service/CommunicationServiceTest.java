@@ -1,5 +1,7 @@
 package com.nn.ticketapp_api.communication.service;
 
+import com.nn.ticketapp_api.communication.api.mapper.CommunicationMapper;
+import com.nn.ticketapp_api.communication.api.response.CommunicationResponse;
 import com.nn.ticketapp_api.communication.domain.Communication;
 import com.nn.ticketapp_api.communication.domain.CommunicationType;
 import com.nn.ticketapp_api.communication.repository.CommunicationRepository;
@@ -12,6 +14,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Instant;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.*;
@@ -25,6 +28,8 @@ public class CommunicationServiceTest {
     private CommunicationRepository communicationRepository;
     @Mock
     private TicketService ticketService;
+    @Mock
+    private CommunicationMapper communicationMapper;
     @InjectMocks
     private CommunicationService communicationService;
 
@@ -37,19 +42,29 @@ public class CommunicationServiceTest {
         String content = "Test comment";
 
         Communication mockComment = Communication.createComment(ticketId, authorId, content);
+        CommunicationResponse mockResponse = new CommunicationResponse(
+                UUID.randomUUID(),
+                CommunicationType.PUBLIC_COMMENT,
+                content,
+                authorId,
+                Instant.now()
+        );
 
         given(communicationRepository.save(any(Communication.class))).willReturn(mockComment);
+        given(communicationMapper.toResponse(mockComment)).willReturn(mockResponse);
 
         // when
-        Communication result = communicationService.addPublicComment(ticketId, authorId, content);
+        CommunicationResponse result = communicationService.addPublicComment(ticketId, authorId, content);
 
         // then
-        assertThat(result.getType()).isEqualTo(CommunicationType.PUBLIC_COMMENT);
-        assertThat(result.getContent()).isEqualTo(content);
-        assertThat(result.getTicketId()).isEqualTo(ticketId);
+        assertThat(result).isNotNull();
+        assertThat(result.type()).isEqualTo(CommunicationType.PUBLIC_COMMENT);
+        assertThat(result.content()).isEqualTo(content);
+        assertThat(result.authorId()).isEqualTo(authorId);
 
         then(ticketService).should().ensureTicketIsActive(ticketId);
         then(communicationRepository).should().save(any(Communication.class));
+        then(communicationMapper).should().toResponse(mockComment);
     }
 
     @Test
@@ -61,19 +76,29 @@ public class CommunicationServiceTest {
         String content = "Test work note";
 
         Communication mockWorkNote = Communication.createWorkNote(ticketId, authorId, content);
+        CommunicationResponse mockResponse = new CommunicationResponse(
+                UUID.randomUUID(),
+                CommunicationType.WORK_NOTE,
+                content,
+                authorId,
+                Instant.now()
+        );
 
         given(communicationRepository.save(any(Communication.class))).willReturn(mockWorkNote);
+        given(communicationMapper.toResponse(mockWorkNote)).willReturn(mockResponse);
 
         // when
-        Communication result = communicationService.addWorkNote(ticketId, authorId, content);
+        CommunicationResponse result = communicationService.addWorkNote(ticketId, authorId, content);
 
         // then
-        assertThat(result.getType()).isEqualTo(CommunicationType.WORK_NOTE);
-        assertThat(result.getContent()).isEqualTo(content);
-        assertThat(result.getTicketId()).isEqualTo(ticketId);
+        assertThat(result).isNotNull();
+        assertThat(result.type()).isEqualTo(CommunicationType.WORK_NOTE);
+        assertThat(result.content()).isEqualTo(content);
+        assertThat(result.authorId()).isEqualTo(authorId);
 
         then(ticketService).should().ensureTicketIsActive(ticketId);
         then(communicationRepository).should().save(any(Communication.class));
+        then(communicationMapper).should().toResponse(mockWorkNote);
     }
 
     @Test
