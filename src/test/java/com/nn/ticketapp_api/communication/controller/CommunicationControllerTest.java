@@ -4,12 +4,17 @@ import com.nn.ticketapp_api.communication.api.request.CommunicationCreateRequest
 import com.nn.ticketapp_api.communication.api.response.CommunicationResponse;
 import com.nn.ticketapp_api.communication.domain.CommunicationType;
 import com.nn.ticketapp_api.communication.service.CommunicationService;
+import com.nn.ticketapp_api.shared.api.advice.GlobalExceptionHandler;
+import com.nn.ticketapp_api.shared.config.WebMvcConfig;
+import com.nn.ticketapp_api.shared.security.SecurityConfig;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.ObjectMapper;
@@ -19,12 +24,14 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(CommunicationController.class)
+@Import({GlobalExceptionHandler.class, SecurityConfig.class, WebMvcConfig.class})
 public class CommunicationControllerTest {
 
     @Autowired
@@ -33,6 +40,8 @@ public class CommunicationControllerTest {
     private ObjectMapper objectMapper;
     @MockitoBean
     private CommunicationService communicationService;
+    @MockitoBean
+    private JwtDecoder jwtDecoder;
 
     @Test
     @DisplayName("Should return 201 Create when USER adds a valid public comment")
@@ -65,10 +74,12 @@ public class CommunicationControllerTest {
                 .andExpect(jsonPath("$.type").value("PUBLIC_COMMENT"))
                 .andExpect(jsonPath("$.content").value(request.content()))
                 .andExpect(jsonPath("$.authorId").value(authorId.toString()));
+
+        then(communicationService).should().addPublicComment(ticketId, authorId, request.content());
     }
 
     @Test
-    @DisplayName("Should return 400 Bad Request when comment content is missin or too short")
+    @DisplayName("Should return 400 Bad Request when comment content is missing or too short")
     void shouldRejectInvalidComment() throws Exception {
         // given
         UUID ticketId = UUID.randomUUID();
@@ -84,6 +95,8 @@ public class CommunicationControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 // then
                 .andExpect(status().isBadRequest());
+
+        then(communicationService).shouldHaveNoInteractions();
     }
 
     @Test
@@ -117,5 +130,28 @@ public class CommunicationControllerTest {
                 .andExpect(jsonPath("$.type").value("WORK_NOTE"))
                 .andExpect(jsonPath("$.content").value(request.content()))
                 .andExpect(jsonPath("$.authorId").value(agentId.toString()));
+
+        then(communicationService).should().addWorkNote(ticketId, agentId, request.content());
+    }
+
+    @Test
+    @DisplayName("Should return 403 Forbidden when standard USER tries to add a work note")
+    void shouldReturn403WhenUserTriesToAddWorkNote() throws Exception {
+        // given
+        UUID ticketId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+
+        CommunicationCreateRequest request = new CommunicationCreateRequest("Test work note");
+
+        // when
+        mockMvc.perform(post("/api/v1/tickets/{id}/work-notes", ticketId)
+                        .with(jwt().jwt(builder -> builder.subject(userId.toString()))
+                                .authorities(new SimpleGrantedAuthority("ROLE_USER")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                // then
+                .andExpect(status().isForbidden());
+
+        then(communicationService).shouldHaveNoInteractions();
     }
 }
