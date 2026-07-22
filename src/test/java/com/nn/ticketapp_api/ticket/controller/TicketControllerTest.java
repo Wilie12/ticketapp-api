@@ -1,6 +1,8 @@
 package com.nn.ticketapp_api.ticket.controller;
 
 import com.nn.ticketapp_api.shared.api.advice.GlobalExceptionHandler;
+import com.nn.ticketapp_api.shared.config.WebMvcConfig;
+import com.nn.ticketapp_api.shared.security.SecurityConfig;
 import com.nn.ticketapp_api.ticket.api.request.ResolutionRequest;
 import com.nn.ticketapp_api.ticket.api.request.TicketCreateRequest;
 import com.nn.ticketapp_api.ticket.api.request.TicketPatchRequest;
@@ -20,6 +22,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.ObjectMapper;
@@ -38,7 +41,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(TicketController.class)
-@Import(GlobalExceptionHandler.class)
+@Import({GlobalExceptionHandler.class, SecurityConfig.class, WebMvcConfig.class})
 public class TicketControllerTest {
     @Autowired
     private MockMvc mockMvc;
@@ -46,6 +49,8 @@ public class TicketControllerTest {
     private ObjectMapper objectMapper;
     @MockitoBean
     private TicketService ticketService;
+    @MockitoBean
+    private JwtDecoder jwtDecoder;
 
     @Test
     @DisplayName("Should successfully create ticket and return 201 Created")
@@ -258,6 +263,23 @@ public class TicketControllerTest {
     }
 
     @Test
+    @DisplayName("Should return 403 Forbidden when standard USER tries to assign a ticket")
+    void shouldReturn403WhenUserTriesToAssignATicket() throws Exception {
+        // given
+        UUID userId = UUID.randomUUID();
+        UUID ticketId = UUID.randomUUID();
+
+        // when
+        mockMvc.perform(post("/api/v1/tickets/{id}/assign", ticketId)
+                        .with(jwt().jwt(builder -> builder.subject(userId.toString()))
+                                .authorities(new SimpleGrantedAuthority("ROLE_USER"))))
+                // then
+                .andExpect(status().isForbidden());
+
+        then(ticketService).shouldHaveNoInteractions();
+    }
+
+    @Test
     @DisplayName("Should successfully resolve ticket and return 200 OK")
     void shouldResolveTicket() throws Exception {
         // given
@@ -412,5 +434,30 @@ public class TicketControllerTest {
                 .andExpect(jsonPath("$.title").value("New title"));
 
         then(ticketService).should().updateTicketDetails(eq(ticketId), eq(request), eq(agentId));
+    }
+
+    @Test
+    @DisplayName("Should return 403 Forbidden when standard USEr tries to modify a ticket via PATCH")
+    void shouldReturn403WhenUserTriesToPatchTicket() throws Exception {
+        // given
+        UUID userId = UUID.randomUUID();
+        UUID ticketId = UUID.randomUUID();
+
+        TicketPatchRequest request = new TicketPatchRequest(
+                "New title",
+                TicketPriority.MEDIUM,
+                UUID.randomUUID()
+        );
+
+        // when
+        mockMvc.perform(patch("/api/v1/tickets/{id}", ticketId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request))
+                        .with(jwt().jwt(builder -> builder.subject(userId.toString()))
+                                .authorities(new SimpleGrantedAuthority("ROLE_USER"))))
+                // then
+                .andExpect(status().isForbidden());
+
+        then(ticketService).shouldHaveNoInteractions();
     }
 }
