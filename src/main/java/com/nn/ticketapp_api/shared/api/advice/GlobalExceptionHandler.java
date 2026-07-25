@@ -1,5 +1,8 @@
 package com.nn.ticketapp_api.shared.api.advice;
 
+import com.nn.ticketapp_api.communication.exception.AttachmentNotFoundException;
+import com.nn.ticketapp_api.communication.exception.AttachmentOwnershipException;
+import com.nn.ticketapp_api.communication.exception.InvalidAttachmentException;
 import com.nn.ticketapp_api.shared.api.response.ErrorResponse;
 import com.nn.ticketapp_api.ticket.exception.InvalidStatusTransitionException;
 import com.nn.ticketapp_api.ticket.exception.TicketClosedException;
@@ -21,13 +24,13 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(TicketNotFoundException.class)
+    @ExceptionHandler({TicketNotFoundException.class, AttachmentNotFoundException.class})
     @ResponseStatus(HttpStatus.NOT_FOUND)
-    public ErrorResponse handleTicketNotFoundException(
+    public ErrorResponse handleNotFoundException(
             TicketNotFoundException e,
             HttpServletRequest request
     ) {
-        log.warn("{}", e.getMessage());
+        log.warn("Resource not found: {}", e.getMessage());
 
         return new ErrorResponse(
                 Instant.now(),
@@ -65,13 +68,34 @@ public class GlobalExceptionHandler {
         );
     }
 
-    @ExceptionHandler({TicketOwnershipException.class, AccessDeniedException.class})
+    @ExceptionHandler(InvalidAttachmentException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse handleInvalidAttachmentException(
+            InvalidAttachmentException e,
+            HttpServletRequest request
+    ) {
+        log.warn("Invalid attachment request on path {}: {}", request.getRequestURI(), e.getMessage());
+
+        return new ErrorResponse(
+                Instant.now(),
+                HttpStatus.BAD_REQUEST.value(),
+                HttpStatus.BAD_REQUEST.getReasonPhrase(),
+                e.getMessage(),
+                request.getRequestURI()
+        );
+    }
+
+    @ExceptionHandler({
+            TicketOwnershipException.class,
+            AccessDeniedException.class,
+            AttachmentOwnershipException.class
+    })
     @ResponseStatus(HttpStatus.FORBIDDEN)
     public ErrorResponse handleForbiddenExceptions(
             RuntimeException e,
             HttpServletRequest request
     ) {
-        log.warn("{}", e.getMessage());
+        log.warn("Access denied on path {}: {}", request.getRequestURI(), e.getMessage());
 
         return new ErrorResponse(
                 Instant.now(),
