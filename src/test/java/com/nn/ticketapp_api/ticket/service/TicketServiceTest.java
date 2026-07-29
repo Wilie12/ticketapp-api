@@ -123,8 +123,8 @@ public class TicketServiceTest {
     }
 
     @Test
-    @DisplayName("Should return ticket details when ticket exists")
-    void shouldReturnTicketDetails() {
+    @DisplayName("Should return validated ticket entity when user owns the ticket")
+    void shouldReturnValidatedTicket() {
         // given
         UUID ticketId = UUID.randomUUID();
         UUID creatorId = UUID.randomUUID();
@@ -136,34 +136,21 @@ public class TicketServiceTest {
                 UUID.randomUUID(),
                 null
         );
-        TicketDetailsResponse expectedResponse = new TicketDetailsResponse(
-                ticketId,
-                "INC0000003",
-                "Title for INC0000003",
-                "Test description",
-                TicketStatus.NEW,
-                null,
-                null,
-                Instant.now(),
-                null
-        );
 
         given(ticketRepository.findById(ticketId)).willReturn(Optional.of(ticket));
-        given(ticketMapper.toDetailsResponse(ticket)).willReturn(expectedResponse);
 
         // when
-        TicketDetailsResponse actualResponse = ticketService.getTicketDetails(ticketId, creatorId);
+        Ticket actualResponse = ticketService.getValidatedTicket(ticketId, creatorId);
 
         // then
         assertThat(actualResponse).isNotNull();
-        assertThat(actualResponse.ticketNumber()).isEqualTo("INC0000003");
+        assertThat(actualResponse.getTicketNumber()).isEqualTo("INC0000003");
 
         then(ticketRepository).should().findById(ticketId);
-        then(ticketMapper).should().toDetailsResponse(ticket);
     }
 
     @Test
-    @DisplayName("Should throw TicketNotFoundException when ticket does not exist")
+    @DisplayName("Should throw TicketNotFoundException when ticket does not exist during validation")
     void shouldThrowExceptionWhenTicketNotFound() {
         // given
         UUID ticketId = UUID.randomUUID();
@@ -171,7 +158,7 @@ public class TicketServiceTest {
         given(ticketRepository.findById(ticketId)).willReturn(Optional.empty());
 
         // when
-        Throwable thrown = catchThrowable(() -> ticketService.getTicketDetails(ticketId, creatorId));
+        Throwable thrown = catchThrowable(() -> ticketService.getValidatedTicket(ticketId, creatorId));
 
         // then
         assertThat(thrown)

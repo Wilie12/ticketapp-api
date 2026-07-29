@@ -3,6 +3,7 @@ package com.nn.ticketapp_api.communication.service;
 import com.nn.ticketapp_api.communication.api.mapper.CommunicationMapper;
 import com.nn.ticketapp_api.communication.api.response.CommunicationResponse;
 import com.nn.ticketapp_api.communication.domain.Communication;
+import com.nn.ticketapp_api.communication.domain.CommunicationType;
 import com.nn.ticketapp_api.communication.repository.CommunicationRepository;
 import com.nn.ticketapp_api.ticket.service.TicketService;
 import lombok.RequiredArgsConstructor;
@@ -10,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.UUID;
 
 @Slf4j
@@ -45,5 +47,15 @@ public class CommunicationService {
 
         log.info("Successfully added work note to ticket {} by user {}", ticketId, authorId);
         return communicationMapper.toResponse(savedWorkNote);
+    }
+
+    @Transactional(readOnly = true)
+    public List<CommunicationResponse> getCommunicationsByType(UUID ticketId, CommunicationType type) {
+        log.debug("Retrieving communications of type {} for ticket {}", type, ticketId);
+
+        return communicationRepository.findByTicketIdAndTypeOrderByCreatedAtAsc(ticketId, type)
+                .stream()
+                .map(communicationMapper::toResponse)
+                .toList();
     }
 }

@@ -63,8 +63,8 @@ public class TicketService {
     }
 
     @Transactional(readOnly = true)
-    public TicketDetailsResponse getTicketDetails(UUID ticketId, UUID requesterId) {
-        log.debug("Retrieving ticket details for ticket ID: {}", ticketId);
+    public Ticket getValidatedTicket(UUID ticketId, UUID requesterId) {
+        log.debug("Retrieving and validating access for ticket ID: {}", ticketId);
 
         Ticket ticket = getTicketOrThrow(ticketId);
 
@@ -74,7 +74,7 @@ public class TicketService {
             throw new TicketOwnershipException(ticketId, requesterId);
         }
 
-        return ticketMapper.toDetailsResponse(ticket);
+        return ticket;
     }
 
     @Transactional

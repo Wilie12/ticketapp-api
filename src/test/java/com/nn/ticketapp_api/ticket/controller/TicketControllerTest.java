@@ -14,6 +14,7 @@ import com.nn.ticketapp_api.ticket.exception.InvalidStatusTransitionException;
 import com.nn.ticketapp_api.ticket.exception.TicketClosedException;
 import com.nn.ticketapp_api.ticket.exception.TicketNotFoundException;
 import com.nn.ticketapp_api.ticket.exception.TicketOwnershipException;
+import com.nn.ticketapp_api.ticket.facade.TicketFacade;
 import com.nn.ticketapp_api.ticket.service.TicketService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -49,6 +50,8 @@ public class TicketControllerTest {
     private ObjectMapper objectMapper;
     @MockitoBean
     private TicketService ticketService;
+    @MockitoBean
+    private TicketFacade ticketFacade;
     @MockitoBean
     private JwtDecoder jwtDecoder;
 
@@ -167,10 +170,14 @@ public class TicketControllerTest {
                 null,
                 UUID.randomUUID(),
                 Instant.now(),
-                Instant.now().plusSeconds(3600)
+                Instant.now().plusSeconds(3600),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of()
         );
 
-        given(ticketService.getTicketDetails(ticketId, requesterId)).willReturn(mockResponse);
+        given(ticketFacade.getTicketDetails(ticketId, requesterId)).willReturn(mockResponse);
 
         // when
         mockMvc.perform(get("/api/v1/tickets/{id}", ticketId)
@@ -182,7 +189,7 @@ public class TicketControllerTest {
                 .andExpect(jsonPath("$.ticketNumber").value("INC0000001"))
                 .andExpect(jsonPath("$.title").value("Test ticket"));
 
-        then(ticketService).should().getTicketDetails(eq(ticketId), eq(requesterId));
+        then(ticketFacade).should().getTicketDetails(eq(ticketId), eq(requesterId));
     }
 
     @Test
@@ -192,7 +199,7 @@ public class TicketControllerTest {
         UUID requesterId = UUID.randomUUID();
         UUID ticketId = UUID.randomUUID();
 
-        given(ticketService.getTicketDetails(ticketId, requesterId))
+        given(ticketFacade.getTicketDetails(ticketId, requesterId))
                 .willThrow(new TicketNotFoundException(ticketId));
 
         // when
@@ -206,7 +213,7 @@ public class TicketControllerTest {
                 .andExpect(jsonPath("$.message")
                         .value(String.format("Ticket with ID %s not found", ticketId)));
 
-        then(ticketService).should().getTicketDetails(eq(ticketId), eq(requesterId));
+        then(ticketFacade).should().getTicketDetails(eq(ticketId), eq(requesterId));
     }
 
     @Test
@@ -216,7 +223,7 @@ public class TicketControllerTest {
         UUID fakeRequesterId = UUID.randomUUID();
         UUID ticketId = UUID.randomUUID();
 
-        given(ticketService.getTicketDetails(ticketId, fakeRequesterId))
+        given(ticketFacade.getTicketDetails(ticketId, fakeRequesterId))
                 .willThrow(new TicketOwnershipException(ticketId, fakeRequesterId));
 
         // when
@@ -230,7 +237,7 @@ public class TicketControllerTest {
                 .andExpect(jsonPath("$.message")
                         .value(String.format("User %s is not the owner of ticket %s", fakeRequesterId, ticketId)));
 
-        then(ticketService).should().getTicketDetails(eq(ticketId), eq(fakeRequesterId));
+        then(ticketFacade).should().getTicketDetails(eq(ticketId), eq(fakeRequesterId));
     }
 
     @Test
