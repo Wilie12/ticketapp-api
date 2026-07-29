@@ -6,6 +6,7 @@ import com.nn.ticketapp_api.ticket.api.request.TicketCreateRequest;
 import com.nn.ticketapp_api.ticket.api.request.TicketPatchRequest;
 import com.nn.ticketapp_api.ticket.api.response.TicketDetailsResponse;
 import com.nn.ticketapp_api.ticket.api.response.TicketResponse;
+import com.nn.ticketapp_api.ticket.facade.TicketFacade;
 import com.nn.ticketapp_api.ticket.service.TicketService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,7 @@ import java.util.UUID;
 public class TicketController {
 
     private final TicketService ticketService;
+    private final TicketFacade ticketFacade;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -53,7 +55,7 @@ public class TicketController {
     ) {
         log.debug("Received request from user: {} to get ticket with ID: {}", requesterId, ticketId);
 
-        return ticketService.getTicketDetails(ticketId, requesterId);
+        return ticketFacade.getTicketDetails(ticketId, requesterId);
     }
 
     @PostMapping("/{id}/assign")
