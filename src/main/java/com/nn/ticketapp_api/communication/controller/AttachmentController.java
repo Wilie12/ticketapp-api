@@ -2,7 +2,8 @@ package com.nn.ticketapp_api.communication.controller;
 
 import com.nn.ticketapp_api.communication.api.response.AttachmentResponse;
 import com.nn.ticketapp_api.communication.service.AttachmentService;
-import com.nn.ticketapp_api.shared.security.annotation.CurrentUserId;
+import com.nn.ticketapp_api.shared.security.annotation.CurrentRequester;
+import com.nn.ticketapp_api.shared.security.domain.RequesterContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -27,11 +28,15 @@ public class AttachmentController {
     public AttachmentResponse uploadAttachment(
             @PathVariable("ticketId") UUID ticketId,
             @RequestParam("file") MultipartFile file,
-            @CurrentUserId UUID authorId
+            @CurrentRequester RequesterContext requesterContext
     ) {
-        log.debug("Received request to upload attachment to ticket {} from user: {}", ticketId, authorId);
+        log.debug(
+                "Received request to upload attachment to ticket {} from user: {}",
+                ticketId,
+                requesterContext.userId()
+        );
 
-        return attachmentService.uploadAttachment(ticketId, authorId, file);
+        return attachmentService.uploadAttachment(ticketId, requesterContext.userId(), file);
     }
 
     @DeleteMapping("/{attachmentId}")
@@ -39,15 +44,15 @@ public class AttachmentController {
     public void deleteAttachment(
             @PathVariable("ticketId") UUID ticketId,
             @PathVariable("attachmentId") UUID attachmentId,
-            @CurrentUserId UUID authorId
+            @CurrentRequester RequesterContext requesterContext
     ) {
         log.debug(
                 "Received request to delete attachment {} from ticket {} from user: {}",
                 attachmentId,
                 ticketId,
-                authorId
+                requesterContext.userId()
         );
 
-        attachmentService.deleteAttachment(ticketId, attachmentId, authorId);
+        attachmentService.deleteAttachment(ticketId, attachmentId, requesterContext.userId());
     }
 }

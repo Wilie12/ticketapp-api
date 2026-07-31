@@ -5,6 +5,7 @@ import com.nn.ticketapp_api.communication.api.response.CommunicationResponse;
 import com.nn.ticketapp_api.communication.domain.CommunicationType;
 import com.nn.ticketapp_api.communication.service.AttachmentService;
 import com.nn.ticketapp_api.communication.service.CommunicationService;
+import com.nn.ticketapp_api.shared.security.domain.RequesterContext;
 import com.nn.ticketapp_api.ticket.api.mapper.TicketMapper;
 import com.nn.ticketapp_api.ticket.api.response.TicketDetailsResponse;
 import com.nn.ticketapp_api.ticket.domain.Ticket;
@@ -14,6 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
@@ -28,19 +30,21 @@ public class TicketFacade {
     private final TicketMapper ticketMapper;
 
     @Transactional(readOnly = true)
-    public TicketDetailsResponse getTicketDetails(UUID ticketId, UUID requesterId) {
+    public TicketDetailsResponse getTicketDetails(UUID ticketId, RequesterContext requesterContext) {
         log.debug("Orchestrating ticket details aggregation for ticket ID: {}", ticketId);
 
-        Ticket ticket = ticketService.getValidatedTicket(ticketId, requesterId);
+        Ticket ticket = ticketService.getValidatedTicket(ticketId, requesterContext.userId());
 
         List<CommunicationResponse> comments = communicationService
                 .getCommunicationsByType(ticketId, CommunicationType.PUBLIC_COMMENT);
 
-        List<CommunicationResponse> workNotes = communicationService
-                .getCommunicationsByType(ticketId, CommunicationType.WORK_NOTE);
+        List<CommunicationResponse> workNotes = Collections.emptyList();
+        List<CommunicationResponse> systemEvents = Collections.emptyList();
 
-        List<CommunicationResponse> systemEvents = communicationService
-                .getCommunicationsByType(ticketId, CommunicationType.SYSTEM_EVENT);
+        if (requesterContext.isInternal()) {
+            workNotes = communicationService.getCommunicationsByType(ticketId, CommunicationType.WORK_NOTE);
+            systemEvents = communicationService.getCommunicationsByType(ticketId, CommunicationType.SYSTEM_EVENT);
+        }
 
         List<AttachmentResponse> attachments = attachmentService.getTicketAttachments(ticketId);
 
