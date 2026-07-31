@@ -5,6 +5,8 @@ import com.nn.ticketapp_api.communication.api.response.CommunicationResponse;
 import com.nn.ticketapp_api.communication.domain.CommunicationType;
 import com.nn.ticketapp_api.communication.service.AttachmentService;
 import com.nn.ticketapp_api.communication.service.CommunicationService;
+import com.nn.ticketapp_api.shared.security.domain.AccessLevel;
+import com.nn.ticketapp_api.shared.security.domain.RequesterContext;
 import com.nn.ticketapp_api.ticket.api.mapper.TicketMapper;
 import com.nn.ticketapp_api.ticket.api.response.TicketDetailsResponse;
 import com.nn.ticketapp_api.ticket.domain.Ticket;
@@ -20,6 +22,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
@@ -28,6 +32,7 @@ import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
 public class TicketFacadeTest {
@@ -44,11 +49,12 @@ public class TicketFacadeTest {
     private TicketFacade ticketFacade;
 
     @Test
-    @DisplayName("Should successfully orchestrate data aggregation for ticket details")
+    @DisplayName("Should aggregate full ticket details including internal workNotes for INTERNAL user")
     void shouldAggregateTicketDetails() {
         // given
         UUID ticketId = UUID.randomUUID();
         UUID requesterId = UUID.randomUUID();
+        RequesterContext requesterContext = new RequesterContext(requesterId, AccessLevel.INTERNAL);
 
         Ticket mockTicket = Ticket.createNew(
                 "INC0000001",
@@ -92,7 +98,7 @@ public class TicketFacadeTest {
                 .willReturn(expectedResponse);
 
         // when
-        TicketDetailsResponse result = ticketFacade.getTicketDetails(ticketId, requesterId);
+        TicketDetailsResponse result = ticketFacade.getTicketDetails(ticketId, requesterContext);
 
         // then
         assertThat(result).isNotNull();
@@ -106,17 +112,79 @@ public class TicketFacadeTest {
     }
 
     @Test
+    @DisplayName("Should aggregate partial ticket details omitting internal workNotes for STANDARD user")
+    void shouldAggregateTicketDetailsForStandardUser() {
+        // given
+        UUID ticketId = UUID.randomUUID();
+        UUID requesterId = UUID.randomUUID();
+        RequesterContext requesterContext = new RequesterContext(requesterId, AccessLevel.STANDARD);
+
+        Ticket mockTicket = Ticket.createNew(
+                "INC0000001",
+                "Title",
+                "Desc",
+                TicketPriority.LOW,
+                requesterId,
+                UUID.randomUUID()
+        );
+
+        List<CommunicationResponse> comments = List.of(mock(CommunicationResponse.class));
+        List<AttachmentResponse> attachments = List.of(mock(AttachmentResponse.class));
+
+        TicketDetailsResponse expectedResponse = new TicketDetailsResponse(
+                ticketId,
+                "INC0000001",
+                "Title",
+                "Desc",
+                TicketStatus.NEW,
+                null,
+                null,
+                Instant.now(),
+                null,
+                comments,
+                Collections.emptyList(),
+                Collections.emptyList(),
+                attachments
+        );
+
+        given(ticketService.getValidatedTicket(ticketId, requesterId)).willReturn(mockTicket);
+        given(communicationService.getCommunicationsByType(ticketId, CommunicationType.PUBLIC_COMMENT))
+                .willReturn(comments);
+        given(attachmentService.getTicketAttachments(ticketId)).willReturn(attachments);
+        given(ticketMapper.toDetailsResponse(
+                mockTicket,
+                comments,
+                Collections.emptyList(),
+                Collections.emptyList(),
+                attachments
+        )).willReturn(expectedResponse);
+
+        // when
+        TicketDetailsResponse result = ticketFacade.getTicketDetails(ticketId, requesterContext);
+
+        // then
+        assertThat(result).isNotNull();
+
+        then(ticketService).should().getValidatedTicket(ticketId, requesterId);
+        then(communicationService).should().getCommunicationsByType(ticketId, CommunicationType.PUBLIC_COMMENT);
+        then(communicationService).should(never()).getCommunicationsByType(ticketId, CommunicationType.WORK_NOTE);
+        then(communicationService).should(never()).getCommunicationsByType(ticketId, CommunicationType.SYSTEM_EVENT);
+        then(attachmentService).should().getTicketAttachments(ticketId);
+    }
+
+    @Test
     @DisplayName("Should fail fast and not fetch communication if ticket validation fails")
     void shouldFailFastOnValidationFailure() {
         // given
         UUID ticketId = UUID.randomUUID();
         UUID fakeRequesterId = UUID.randomUUID();
+        RequesterContext requesterContext = new RequesterContext(fakeRequesterId, AccessLevel.STANDARD);
 
         given(ticketService.getValidatedTicket(ticketId, fakeRequesterId))
                 .willThrow(new TicketOwnershipException(ticketId, fakeRequesterId));
 
         // when
-        Throwable thrown = catchThrowable(() -> ticketFacade.getTicketDetails(ticketId, fakeRequesterId));
+        Throwable thrown = catchThrowable(() -> ticketFacade.getTicketDetails(ticketId, requesterContext));
 
         // then
         assertThat(thrown)
