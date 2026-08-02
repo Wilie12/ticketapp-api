@@ -1,9 +1,9 @@
 package com.nn.ticketapp_api.ticket.service;
 
+import com.nn.ticketapp_api.shared.api.response.PageResponse;
 import com.nn.ticketapp_api.ticket.api.mapper.TicketMapper;
 import com.nn.ticketapp_api.ticket.api.request.TicketCreateRequest;
 import com.nn.ticketapp_api.ticket.api.request.TicketPatchRequest;
-import com.nn.ticketapp_api.ticket.api.response.TicketDetailsResponse;
 import com.nn.ticketapp_api.ticket.api.response.TicketResponse;
 import com.nn.ticketapp_api.ticket.domain.Ticket;
 import com.nn.ticketapp_api.ticket.domain.TicketStatus;
@@ -15,6 +15,8 @@ import com.nn.ticketapp_api.ticket.repository.TicketRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -157,6 +159,28 @@ public class TicketService {
 
         log.info("Details for ticket {} updated successfully", ticket.getTicketNumber());
         return ticketMapper.toResponse(ticket);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<TicketResponse> getUnassignedQueue(UUID teamId, Pageable pageable) {
+        log.debug("Retrieving unassigned ticket queue for team: {}", teamId);
+
+        Page<Ticket> ticketPage = ticketRepository
+                .findByStatusAndAssignedTeamIdAndAssignedAgentIdIsNull(TicketStatus.NEW, teamId, pageable);
+
+        return PageResponse.of(ticketPage.map(ticketMapper::toResponse));
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<TicketResponse> getAgentTickets(UUID agentId, Pageable pageable) {
+        log.debug("Retrieving assigned tickets for agent: {}", agentId);
+
+        List<TicketStatus> activeStatuses = List.of(TicketStatus.IN_PROGRESS, TicketStatus.RESOLVED);
+
+        Page<Ticket> ticketPage = ticketRepository
+                .findAllByAssignedAgentIdAndStatusIn(agentId, activeStatuses, pageable);
+
+        return PageResponse.of(ticketPage.map(ticketMapper::toResponse));
     }
 
     public void ensureTicketIsActive(UUID ticketId) {

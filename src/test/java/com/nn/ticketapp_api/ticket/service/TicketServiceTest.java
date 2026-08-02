@@ -1,5 +1,6 @@
 package com.nn.ticketapp_api.ticket.service;
 
+import com.nn.ticketapp_api.shared.api.response.PageResponse;
 import com.nn.ticketapp_api.ticket.api.mapper.TicketMapper;
 import com.nn.ticketapp_api.ticket.api.request.TicketCreateRequest;
 import com.nn.ticketapp_api.ticket.api.request.TicketPatchRequest;
@@ -19,6 +20,10 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.time.Instant;
 import java.util.List;
@@ -384,6 +389,98 @@ public class TicketServiceTest {
         assertThat(ticket.getAssignedTeamId()).isEqualTo(newTeamId);
 
         then(ticketRepository).should().findById(ticketId);
+        then(ticketMapper).should().toResponse(ticket);
+    }
+
+    @Test
+    @DisplayName("Should return paginated unassigned queue for a team")
+    void shouldReturnUnassignedQueue() {
+        // given
+        UUID teamId = UUID.randomUUID();
+        Pageable pageable = PageRequest.of(0, 10);
+
+        Ticket ticket = buildTicket(
+                teamId,
+                "INC0000011",
+                TicketStatus.NEW,
+                UUID.randomUUID(),
+                teamId,
+                null
+        );
+
+        Page<Ticket> ticketPage = new PageImpl<>(List.of(ticket), pageable, 1);
+
+        TicketResponse ticketResponse = new TicketResponse(
+                ticket.getId(),
+                "INC0000011",
+                "Title for INC0000011",
+                TicketStatus.NEW,
+                Instant.now(),
+                null
+        );
+
+        given(ticketRepository
+                .findByStatusAndAssignedTeamIdAndAssignedAgentIdIsNull(TicketStatus.NEW, teamId, pageable))
+                .willReturn(ticketPage);
+        given(ticketMapper.toResponse(ticket)).willReturn(ticketResponse);
+
+        // when
+        PageResponse<TicketResponse> result = ticketService.getUnassignedQueue(teamId, pageable);
+
+        // then
+        assertThat(result).isNotNull();
+        assertThat(result.content()).hasSize(1);
+        assertThat(result.totalElements()).isEqualTo(1);
+        assertThat(result.content().get(0).ticketNumber()).isEqualTo("INC0000011");
+
+        then(ticketRepository).should()
+                .findByStatusAndAssignedTeamIdAndAssignedAgentIdIsNull(TicketStatus.NEW, teamId, pageable);
+        then(ticketMapper).should().toResponse(ticket);
+    }
+
+    @Test
+    @DisplayName("Should return paginated assigned tickets for an agent")
+    void shouldReturnAgentTickets() {
+        // given
+        UUID agentId = UUID.randomUUID();
+        Pageable pageable = PageRequest.of(0, 10);
+
+        Ticket ticket = buildTicket(
+                UUID.randomUUID(),
+                "INC0000012",
+                TicketStatus.NEW,
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                agentId
+        );
+
+        Page<Ticket> ticketPage = new PageImpl<>(List.of(ticket), pageable, 1);
+
+        TicketResponse ticketResponse = new TicketResponse(
+                ticket.getId(),
+                "INC0000012",
+                "Title for INC0000012",
+                TicketStatus.IN_PROGRESS,
+                Instant.now(),
+                null
+        );
+
+        List<TicketStatus> activeStatuses = List.of(TicketStatus.IN_PROGRESS, TicketStatus.RESOLVED);
+
+        given(ticketRepository.findAllByAssignedAgentIdAndStatusIn(agentId, activeStatuses, pageable))
+                .willReturn(ticketPage);
+        given(ticketMapper.toResponse(ticket)).willReturn(ticketResponse);
+
+        // when
+        PageResponse<TicketResponse> result = ticketService.getAgentTickets(agentId, pageable);
+
+        // then
+        assertThat(result).isNotNull();
+        assertThat(result.content()).hasSize(1);
+        assertThat(result.totalElements()).isEqualTo(1);
+        assertThat(result.content().get(0).ticketNumber()).isEqualTo("INC0000012");
+
+        then(ticketRepository).should().findAllByAssignedAgentIdAndStatusIn(agentId, activeStatuses, pageable);
         then(ticketMapper).should().toResponse(ticket);
     }
 
