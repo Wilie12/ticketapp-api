@@ -1,6 +1,7 @@
 package com.nn.ticketapp_api.ticket.controller;
 
 import com.nn.ticketapp_api.shared.api.advice.GlobalExceptionHandler;
+import com.nn.ticketapp_api.shared.api.response.PageResponse;
 import com.nn.ticketapp_api.shared.config.WebMvcConfig;
 import com.nn.ticketapp_api.shared.security.SecurityConfig;
 import com.nn.ticketapp_api.shared.security.domain.RequesterContext;
@@ -22,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
@@ -467,5 +469,46 @@ public class TicketControllerTest {
                 .andExpect(status().isForbidden());
 
         then(ticketService).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("Should return paginated unassigned tickets queue and 200 OK")
+    void shouldReturnUnassignedQueue() throws Exception {
+        // given
+        UUID agentId = UUID.randomUUID();
+        UUID teamId = UUID.randomUUID();
+
+        TicketResponse mockResponse = new TicketResponse(
+                UUID.randomUUID(),
+                "INC0000001",
+                "Title",
+                TicketStatus.NEW,
+                Instant.now(),
+                null
+        );
+
+        PageResponse<TicketResponse> pageResponse = new PageResponse<>(
+                List.of(mockResponse),
+                0,
+                20,
+                1,
+                1,
+                true
+        );
+
+        given(ticketService.getUnassignedQueue(eq(teamId), any(Pageable.class))).willReturn(pageResponse);
+
+        // when
+        mockMvc.perform(get("/api/v1/tickets/queue")
+                .param("teamId", teamId.toString())
+                .param("page", "0")
+                .param("size", "20")
+                .with(jwt().jwt(builder -> builder.subject(agentId.toString()))
+                        .authorities(new SimpleGrantedAuthority("ROLE_AGENT"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].ticketNumber").value("INC0000001"))
+                .andExpect(jsonPath("$.totalElements").value(1));
+
+        then(ticketService).should().getUnassignedQueue(eq(teamId), any(Pageable.class));
     }
 }

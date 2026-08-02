@@ -1,5 +1,6 @@
 package com.nn.ticketapp_api.ticket.controller;
 
+import com.nn.ticketapp_api.shared.api.response.PageResponse;
 import com.nn.ticketapp_api.shared.security.annotation.CurrentRequester;
 import com.nn.ticketapp_api.shared.security.domain.RequesterContext;
 import com.nn.ticketapp_api.ticket.api.request.ResolutionRequest;
@@ -12,6 +13,9 @@ import com.nn.ticketapp_api.ticket.service.TicketService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -117,5 +121,22 @@ public class TicketController {
         log.debug("Received request to update details for ticket {} by agent: {}", ticketId, requesterContext.userId());
 
         return ticketService.updateTicketDetails(ticketId, ticketPatchRequest, requesterContext.userId());
+    }
+
+    @GetMapping("/queue")
+    @ResponseStatus(HttpStatus.OK)
+    @PreAuthorize("hasAnyRole('AGENT', 'ADMIN')")
+    public PageResponse<TicketResponse> getUnassignedQueue(
+            @RequestParam(name = "teamId") UUID teamId,
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.ASC) Pageable pageable,
+            @CurrentRequester RequesterContext requesterContext
+    ) {
+        log.debug(
+                "Received request to get unassigned ticket queue for team {} by agent: {}",
+                teamId,
+                requesterContext.userId()
+        );
+
+        return ticketService.getUnassignedQueue(teamId, pageable);
     }
 }
