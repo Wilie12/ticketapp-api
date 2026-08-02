@@ -8,6 +8,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 
 import java.util.List;
 import java.util.UUID;
@@ -128,15 +131,19 @@ public class TicketRepositoryTest extends BaseIntegrationTest {
         );
         ticketRepository.saveAndFlush(otherTeamTicket);
 
+        PageRequest pageRequest = PageRequest
+                .of(0, 10, Sort.by(Sort.Direction.ASC, "createdAt"));
+
         // when
-        List<Ticket> queue = ticketRepository.findByStatusAndAssignedTeamIdAndAssignedAgentIdIsNullOrderByCreatedAtAsc(
-                TicketStatus.NEW, targetTeamId
+        Page<Ticket> queue = ticketRepository.findByStatusAndAssignedTeamIdAndAssignedAgentIdIsNull(
+                TicketStatus.NEW, targetTeamId, pageRequest
         );
 
         // then
         assertThat(queue).hasSize(2);
-        assertThat(queue.get(0).getTicketNumber()).isEqualTo("INC0000001");
-        assertThat(queue.get(1).getTicketNumber()).isEqualTo("INC0000002");
+        assertThat(queue.getTotalElements()).isEqualTo(2);
+        assertThat(queue.getContent().get(0).getTicketNumber()).isEqualTo("INC0000001");
+        assertThat(queue.getContent().get(1).getTicketNumber()).isEqualTo("INC0000002");
     }
 
     @Test
@@ -176,16 +183,21 @@ public class TicketRepositoryTest extends BaseIntegrationTest {
         ticketRepository.saveAndFlush(closedTicket);
 
         List<TicketStatus> activeStatuses = List.of(TicketStatus.IN_PROGRESS, TicketStatus.RESOLVED);
+
+        PageRequest pageRequest = PageRequest
+                .of(0, 10, Sort.by(Sort.Direction.DESC, "createdAt"));
+
         // when
-        List<Ticket> backlog = ticketRepository.findAllByAssignedAgentIdAndStatusInOrderByCreatedAtDesc(
-                agentId, activeStatuses
+        Page<Ticket> backlog = ticketRepository.findAllByAssignedAgentIdAndStatusIn(
+                agentId, activeStatuses, pageRequest
         );
 
         // then
         assertThat(backlog).hasSize(2);
-        assertThat(backlog.get(0).getTicketNumber()).isEqualTo("INC0000002");
-        assertThat(backlog.get(1).getTicketNumber()).isEqualTo("INC0000001");
-        assertThat(backlog).extracting(Ticket::getStatus).doesNotContain(TicketStatus.CLOSED);
+        assertThat(backlog.getTotalElements()).isEqualTo(2);
+        assertThat(backlog.getContent().get(0).getTicketNumber()).isEqualTo("INC0000002");
+        assertThat(backlog.getContent().get(1).getTicketNumber()).isEqualTo("INC0000001");
+        assertThat(backlog.getContent()).extracting(Ticket::getStatus).doesNotContain(TicketStatus.CLOSED);
     }
 
     @Test
