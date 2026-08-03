@@ -22,7 +22,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
@@ -36,6 +35,8 @@ import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
 public class TicketFacadeTest {
+
+    private static final Instant FIXED_NOW = Instant.parse("2026-08-03T10:00:00Z");
 
     @Mock
     private TicketService ticketService;
@@ -62,7 +63,8 @@ public class TicketFacadeTest {
                 "Desc",
                 TicketPriority.LOW,
                 requesterId,
-                UUID.randomUUID()
+                UUID.randomUUID(),
+                FIXED_NOW
         );
 
         List<CommunicationResponse> comments = List.of(mock(CommunicationResponse.class));
@@ -125,7 +127,8 @@ public class TicketFacadeTest {
                 "Desc",
                 TicketPriority.LOW,
                 requesterId,
-                UUID.randomUUID()
+                UUID.randomUUID(),
+                FIXED_NOW
         );
 
         List<CommunicationResponse> comments = List.of(mock(CommunicationResponse.class));

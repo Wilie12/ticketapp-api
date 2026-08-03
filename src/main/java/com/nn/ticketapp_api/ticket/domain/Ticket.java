@@ -64,8 +64,15 @@ public class Ticket {
         return this.creatorId.equals(userId);
     }
 
-    public static Ticket createNew(String ticketNumber, String title, String description,
-                                   TicketPriority priority, UUID creatorId, UUID assignedTeamId) {
+    public static Ticket createNew(
+            String ticketNumber,
+            String title,
+            String description,
+            TicketPriority priority,
+            UUID creatorId,
+            UUID assignedTeamId,
+            Instant slaDeadline
+    ) {
         return Ticket.builder()
                 .ticketNumber(ticketNumber)
                 .title(title)
@@ -74,6 +81,7 @@ public class Ticket {
                 .status(TicketStatus.NEW)
                 .creatorId(creatorId)
                 .assignedTeamId(assignedTeamId)
+                .slaDeadline(slaDeadline)
                 .build();
     }
 
@@ -89,10 +97,10 @@ public class Ticket {
         this.status = TicketStatus.IN_PROGRESS;
     }
 
-    public void resolve() {
+    public void resolve(Instant resolutionTime) {
         ensureStatusTransitionTo(TicketStatus.RESOLVED);
         this.status = TicketStatus.RESOLVED;
-        this.resolvedAt = Instant.now();
+        this.resolvedAt = resolutionTime;
     }
 
     public void close() {

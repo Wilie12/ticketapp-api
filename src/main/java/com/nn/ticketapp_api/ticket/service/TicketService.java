@@ -8,6 +8,7 @@ import com.nn.ticketapp_api.ticket.api.response.TicketResponse;
 import com.nn.ticketapp_api.ticket.domain.Ticket;
 import com.nn.ticketapp_api.ticket.domain.TicketStatus;
 import com.nn.ticketapp_api.ticket.domain.event.TicketResolvedEvent;
+import com.nn.ticketapp_api.ticket.domain.policy.SlaPolicy;
 import com.nn.ticketapp_api.ticket.exception.TicketClosedException;
 import com.nn.ticketapp_api.ticket.exception.TicketNotFoundException;
 import com.nn.ticketapp_api.ticket.exception.TicketOwnershipException;
@@ -20,6 +21,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -31,6 +34,8 @@ public class TicketService {
     private final TicketRepository ticketRepository;
     private final TicketMapper ticketMapper;
     private final ApplicationEventPublisher eventPublisher;
+    private final SlaPolicy slaPolicy;
+    private final Clock clock;
 
     @Transactional
     public TicketResponse createTicket(TicketCreateRequest ticketCreateRequest, UUID creatorId) {
@@ -39,13 +44,17 @@ public class TicketService {
         long sequenceValue = ticketRepository.getNextTicketNumberSequence();
         String ticketNumber = String.format("INC%07d", sequenceValue);
 
+        Instant creationTime = Instant.now(clock);
+        Instant slaDeadline = slaPolicy.calculateDeadline(ticketCreateRequest.priority(), creationTime);
+
         Ticket ticket = Ticket.createNew(
                 ticketNumber,
                 ticketCreateRequest.title(),
                 ticketCreateRequest.description(),
                 ticketCreateRequest.priority(),
                 creatorId,
-                ticketCreateRequest.targetTeamId()
+                ticketCreateRequest.targetTeamId(),
+                slaDeadline
         );
 
         Ticket savedTicket = ticketRepository.save(ticket);
@@ -95,7 +104,7 @@ public class TicketService {
         log.debug("Resolving ticket {} by agent {}", ticketId, agentId);
 
         Ticket ticket = getTicketOrThrow(ticketId);
-        ticket.resolve();
+        ticket.resolve(Instant.now(clock));
 
         eventPublisher.publishEvent(new TicketResolvedEvent(ticketId, agentId, resolutionNote));
 
