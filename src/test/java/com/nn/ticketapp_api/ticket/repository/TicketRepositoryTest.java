@@ -12,6 +12,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -39,6 +40,34 @@ public class TicketRepositoryTest extends BaseIntegrationTest {
         // then
         assertThat(firstValue).isNotNull().isPositive();
         assertThat(secondValue).isNotNull().isGreaterThan(firstValue);
+    }
+
+    @Test
+    @DisplayName("Should accurately persist and retrieve Instant fields mapping to TIMESTAMP WITH TIME ZONE")
+    void shouldPersistTimeFieldsAccurately() {
+        // given
+        Instant expectedSlaDeadline = Instant.parse("2026-08-03T12:00:00Z");
+        Instant expectedResolvedAt = Instant.parse("2026-08-04T12:00:00Z");
+
+        Ticket ticket = Ticket.builder()
+                .ticketNumber("INC0000001")
+                .title("Test Ticket")
+                .description("Testing time boundaries")
+                .priority(TicketPriority.MEDIUM)
+                .status(TicketStatus.RESOLVED)
+                .creatorId(UUID.randomUUID())
+                .assignedTeamId(UUID.randomUUID())
+                .slaDeadline(expectedSlaDeadline)
+                .resolvedAt(expectedResolvedAt)
+                .build();
+        ticketRepository.save(ticket);
+
+        // when
+        Ticket retrievedTicket = ticketRepository.findById(ticket.getId()).orElseThrow();
+
+        // then
+        assertThat(retrievedTicket.getSlaDeadline()).isEqualTo(expectedSlaDeadline);
+        assertThat(retrievedTicket.getResolvedAt()).isEqualTo(expectedResolvedAt);
     }
 
     @Test

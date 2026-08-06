@@ -10,6 +10,7 @@ import com.nn.ticketapp_api.ticket.domain.Ticket;
 import com.nn.ticketapp_api.ticket.domain.TicketPriority;
 import com.nn.ticketapp_api.ticket.domain.TicketStatus;
 import com.nn.ticketapp_api.ticket.domain.event.TicketResolvedEvent;
+import com.nn.ticketapp_api.ticket.domain.policy.SlaPolicy;
 import com.nn.ticketapp_api.ticket.exception.TicketNotFoundException;
 import com.nn.ticketapp_api.ticket.exception.TicketOwnershipException;
 import com.nn.ticketapp_api.ticket.repository.TicketRepository;
@@ -18,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
@@ -25,7 +27,9 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -33,11 +37,14 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
 @ExtendWith(MockitoExtension.class)
 public class TicketServiceTest {
+
+    private static final Instant FIXED_NOW = Instant.parse("2026-08-03T10:00:00Z");
 
     @Mock
     private TicketRepository ticketRepository;
@@ -45,11 +52,15 @@ public class TicketServiceTest {
     private TicketMapper ticketMapper;
     @Mock
     private ApplicationEventPublisher applicationEventPublisher;
+    @Mock
+    private SlaPolicy slaPolicy;
+    @Spy
+    private Clock clock = Clock.fixed(FIXED_NOW, ZoneId.of("UTC"));
     @InjectMocks
     private TicketService ticketService;
 
     @Test
-    @DisplayName("Should create ticket and return response")
+    @DisplayName("Should create ticket calculating SLA dynamically and return response")
     void shouldCreateTicket() {
         // given
         UUID creatorId = UUID.randomUUID();
@@ -58,7 +69,10 @@ public class TicketServiceTest {
                 "Test ticket", "Desc", TicketPriority.LOW, teamId
         );
 
+        Instant expectedSlaDeadline = FIXED_NOW.plusSeconds(7200);
+
         given(ticketRepository.getNextTicketNumberSequence()).willReturn(1L);
+        given(slaPolicy.calculateDeadline(eq(TicketPriority.LOW), eq(FIXED_NOW))).willReturn(expectedSlaDeadline);
 
         Ticket savedTicket = buildTicket(
                 UUID.randomUUID(),
@@ -88,6 +102,7 @@ public class TicketServiceTest {
         assertThat(actualResponse.ticketNumber()).isEqualTo("INC0000001");
 
         then(ticketRepository).should().getNextTicketNumberSequence();
+        then(slaPolicy).should().calculateDeadline(eq(TicketPriority.LOW), eq(FIXED_NOW));
         then(ticketRepository).should().save(any(Ticket.class));
     }
 
@@ -234,7 +249,7 @@ public class TicketServiceTest {
 
         // then
         assertThat(ticket.getStatus()).isEqualTo(TicketStatus.RESOLVED);
-        assertThat(ticket.getResolvedAt()).isNotNull();
+        assertThat(ticket.getResolvedAt()).isEqualTo(FIXED_NOW);
 
         then(ticketRepository).should().findById(ticketId);
         then(ticketMapper).should().toResponse(ticket);
