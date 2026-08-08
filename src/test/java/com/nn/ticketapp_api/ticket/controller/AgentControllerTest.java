@@ -4,8 +4,10 @@ import com.nn.ticketapp_api.shared.api.advice.GlobalExceptionHandler;
 import com.nn.ticketapp_api.shared.api.response.PageResponse;
 import com.nn.ticketapp_api.shared.config.WebMvcConfig;
 import com.nn.ticketapp_api.shared.security.SecurityConfig;
+import com.nn.ticketapp_api.ticket.api.response.StatsResponse;
 import com.nn.ticketapp_api.ticket.api.response.TicketResponse;
 import com.nn.ticketapp_api.ticket.domain.TicketStatus;
+import com.nn.ticketapp_api.ticket.service.AgentStatsService;
 import com.nn.ticketapp_api.ticket.service.TicketService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -40,6 +42,8 @@ public class AgentControllerTest {
     @MockitoBean
     private TicketService ticketService;
     @MockitoBean
+    private AgentStatsService agentStatsService;
+    @MockitoBean
     private JwtDecoder jwtDecoder;
 
     @Test
@@ -69,12 +73,34 @@ public class AgentControllerTest {
 
         // when
         mockMvc.perform(get("/api/v1/agents/me/tickets")
-                .with(jwt().jwt(builder -> builder.subject(agentId.toString()))
-                        .authorities(new SimpleGrantedAuthority("ROLE_AGENT"))))
+                        .with(jwt().jwt(builder -> builder.subject(agentId.toString()))
+                                .authorities(new SimpleGrantedAuthority("ROLE_AGENT"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].ticketNumber").value("INC0000001"))
                 .andExpect(jsonPath("$.totalElements").value(1));
 
         then(ticketService).should().getAgentTickets(eq(agentId), any(Pageable.class));
+    }
+
+    @Test
+    @DisplayName("Should return agent statistics and 200 OK")
+    void shouldReturnAgentStatistics() throws Exception {
+        // given
+        UUID agentId = UUID.randomUUID();
+        StatsResponse mockResponse = new StatsResponse(agentId, 5L, 10L, 2L);
+
+        given(agentStatsService.getAgentStats(agentId)).willReturn(mockResponse);
+
+        // when
+        mockMvc.perform(get("/api/v1/agents/me/stats")
+                        .with(jwt().jwt(builder -> builder.subject(agentId.toString()))
+                                .authorities(new SimpleGrantedAuthority("ROLE_AGENT"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.agentId").value(agentId.toString()))
+                .andExpect(jsonPath("$.currentOpenTicketsCount").value(5))
+                .andExpect(jsonPath("$.allResolvedTicketsCount").value(10))
+                .andExpect(jsonPath("$.allSlaBreachedCount").value(2));
+
+        then(agentStatsService).should().getAgentStats(agentId);
     }
 }
