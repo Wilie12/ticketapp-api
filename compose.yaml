@@ -9,8 +9,8 @@ services:
     container_name: ticketapp-postgres
     environment:
       POSTGRES_DB: ticketapp
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_USER: ${DB_USER:-default_ticketapp_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-default_ticketapp_password}
     ports:
       - "5432:5432"
     volumes:
@@ -27,12 +27,12 @@ services:
     image: quay.io/keycloak/keycloak:24.0.4
     container_name: ticketapp-keycloak
     environment:
-      KEYCLOAK_ADMIN: ${KC_ADMIN_USER:default_ticketapp_user}
-      KEYCLOAK_ADMIN_PASSWORD: ${KC_ADMIN_PASSWORD:default_ticketapp_password}
+      KEYCLOAK_ADMIN: ${KC_ADMIN_USER:-default_ticketapp_user}
+      KEYCLOAK_ADMIN_PASSWORD: ${KC_ADMIN_PASSWORD:-default_ticketapp_password}
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://ticketapp-postgres:5432/ticketapp
-      KC_DB_USERNAME: ${DB_USER:default_ticketapp_user}
-      KC_DB_PASSWORD: ${DB_PASSWORD:default_ticketapp_password}
+      KC_DB_USERNAME: ${DB_USER:-default_ticketapp_user}
+      KC_DB_PASSWORD: ${DB_PASSWORD:-default_ticketapp_password}
     command: start-dev
     ports:
       - "8081:8080"
@@ -62,8 +62,8 @@ services:
     image: minio/minio:RELEASE.2024-11-07T00-52-20Z
     container_name: ticketapp-minio
     environment:
-      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:default_ticketapp_accesskey}
-      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:default_ticketapp_secretkey}
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-default_ticketapp_accesskey}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-default_ticketapp_secretkey}
     command: server /data --console-address ":9001"
     ports:
       - "9000:9000"

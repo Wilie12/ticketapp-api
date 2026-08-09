@@ -5,6 +5,9 @@ spring:
   application:
     name: ticketapp-api
 
+  config:
+    import: "optional:file:.env[.properties]"
+
   datasource:
     url: jdbc:postgresql://localhost:5432/ticketapp
     username: ${DB_USER:default_ticketapp_user}
@@ -47,6 +50,6 @@ spring:
 app:
   minio:
     url: http://localhost:9000
-    access-key: ${MINIO_ACCESS_KEY:default_ticketapp_user}
-    secret-key: ${MINIO_SECRET_KEY:default_ticketapp_password}
+    access-key: ${MINIO_ACCESS_KEY:-default_ticketapp_accesskey}
+    secret-key: ${MINIO_SECRET_KEY:-default_ticketapp_secretkey}
     bucket-name: ticket-attachments
