@@ -8,6 +8,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -60,5 +61,35 @@ public class AgentProfileRepositoryTest extends BaseIntegrationTest {
         // then
         AgentProfile updatedProfile = agentProfileRepository.findById(agentId).orElseThrow();
         assertThat(updatedProfile.getStatus()).isEqualTo(AgentStatus.AVAILABLE);
+    }
+
+    @Test
+    @DisplayName("Should retrieve only agents matching both team ID and specific status")
+    void shouldFindByTeamIdAndStatus() {
+        // given
+        UUID targetTeamId = UUID.randomUUID();
+        UUID otherTeamId = UUID.randomUUID();
+
+        AgentProfile availableTargetAgent = AgentProfile.create(UUID.randomUUID(), targetTeamId);
+        availableTargetAgent.updateStatus(AgentStatus.AVAILABLE);
+        agentProfileRepository.save(availableTargetAgent);
+
+        AgentProfile offlineTargetAgent = AgentProfile.create(UUID.randomUUID(), targetTeamId);
+        agentProfileRepository.save(offlineTargetAgent);
+
+        AgentProfile availableOtherAgent = AgentProfile.create(UUID.randomUUID(), otherTeamId);
+        availableOtherAgent.updateStatus(AgentStatus.AVAILABLE);
+        agentProfileRepository.save(availableOtherAgent);
+
+        agentProfileRepository.flush();
+
+        // when
+        List<AgentProfile> results = agentProfileRepository.findByTeamIdAndStatus(targetTeamId, AgentStatus.AVAILABLE);
+
+        // then
+        assertThat(results).hasSize(1);
+        assertThat(results.get(0).getId()).isEqualTo(availableTargetAgent.getId());
+        assertThat(results.get(0).getTeamId()).isEqualTo(offlineTargetAgent.getTeamId());
+        assertThat(results.get(0).getStatus()).isEqualTo(AgentStatus.AVAILABLE);
     }
 }

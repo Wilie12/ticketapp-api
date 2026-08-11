@@ -35,9 +35,10 @@ public class TicketEventListenerTest {
         // given
         UUID ticketId = UUID.randomUUID();
         UUID agentId = UUID.randomUUID();
+        UUID teamId = UUID.randomUUID();
         String resolutionNote = "Test resolution note";
 
-        TicketResolvedEvent ticketResolvedEvent = new TicketResolvedEvent(ticketId, agentId, resolutionNote);
+        TicketResolvedEvent ticketResolvedEvent = new TicketResolvedEvent(ticketId, agentId, teamId, resolutionNote);
 
         // when
         ticketEventListener.handleTicketResolvedEvent(ticketResolvedEvent);

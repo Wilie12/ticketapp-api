@@ -5,6 +5,7 @@ import java.util.UUID;
 public record TicketResolvedEvent(
         UUID ticketId,
         UUID agentId,
+        UUID teamId,
         String resolutionNote
 ) {
 }

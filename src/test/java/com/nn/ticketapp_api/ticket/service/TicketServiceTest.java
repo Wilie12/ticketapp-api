@@ -36,10 +36,10 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
 public class TicketServiceTest {
@@ -497,6 +497,67 @@ public class TicketServiceTest {
 
         then(ticketRepository).should().findAllByAssignedAgentIdAndStatusIn(agentId, activeStatuses, pageable);
         then(ticketMapper).should().toResponse(ticket);
+    }
+
+    @Test
+    @DisplayName("Should evaluate capacity and assign locked tickets when agent has available slots")
+    void shouldEvaluateCapacityAndAssignTickets() {
+        // given
+        UUID agentId = UUID.randomUUID();
+        UUID teamId = UUID.randomUUID();
+
+        given(ticketRepository.countByAssignedAgentIdAndStatus(agentId, TicketStatus.IN_PROGRESS))
+                .willReturn(3L);
+
+        Ticket firstTicket = buildTicket(
+                UUID.randomUUID(),
+                "INC0000013",
+                TicketStatus.NEW,
+                null,
+                teamId,
+                null
+        );
+        Ticket secondTicket = buildTicket(
+                UUID.randomUUID(),
+                "INC0000013",
+                TicketStatus.NEW,
+                null,
+                teamId,
+                null
+        );
+
+        given(ticketRepository.findAndLockNextTicketsInQueue(TicketStatus.NEW.name(), teamId, 2))
+                .willReturn(List.of(firstTicket, secondTicket));
+
+        // when
+        ticketService.evaluateAndFillAgentCapacity(agentId, teamId);
+
+        // then
+        assertThat(firstTicket.getStatus()).isEqualTo(TicketStatus.IN_PROGRESS);
+        assertThat(firstTicket.getAssignedAgentId()).isEqualTo(agentId);
+        assertThat(secondTicket.getStatus()).isEqualTo(TicketStatus.IN_PROGRESS);
+        assertThat(secondTicket.getAssignedAgentId()).isEqualTo(agentId);
+
+        then(ticketRepository).should().countByAssignedAgentIdAndStatus(agentId, TicketStatus.IN_PROGRESS);
+        then(ticketRepository).should().findAndLockNextTicketsInQueue(TicketStatus.NEW.name(), teamId, 2);
+    }
+
+    @Test
+    @DisplayName("Should skip evaluation when agent reached WIP limit")
+    void shouldSkipEvaluationWhenWipLimitReached() {
+        // given
+        UUID agentId = UUID.randomUUID();
+        UUID teamId = UUID.randomUUID();
+
+        given(ticketRepository.countByAssignedAgentIdAndStatus(agentId, TicketStatus.IN_PROGRESS))
+                .willReturn(5L);
+
+        // when
+        ticketService.evaluateAndFillAgentCapacity(agentId, teamId);
+
+        // then
+        then(ticketRepository).should().countByAssignedAgentIdAndStatus(agentId, TicketStatus.IN_PROGRESS);
+        then(ticketRepository).should(never()).findAndLockNextTicketsInQueue(anyString(), any(), anyInt());
     }
 
     private Ticket buildTicket(
