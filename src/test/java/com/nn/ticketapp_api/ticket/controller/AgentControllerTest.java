@@ -1,5 +1,8 @@
 package com.nn.ticketapp_api.ticket.controller;
 
+import com.nn.ticketapp_api.agent.api.request.AgentStatusUpdateRequest;
+import com.nn.ticketapp_api.agent.domain.AgentStatus;
+import com.nn.ticketapp_api.agent.service.AgentProfileService;
 import com.nn.ticketapp_api.shared.api.advice.GlobalExceptionHandler;
 import com.nn.ticketapp_api.shared.api.response.PageResponse;
 import com.nn.ticketapp_api.shared.config.WebMvcConfig;
@@ -15,10 +18,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import tools.jackson.databind.ObjectMapper;
 
 import java.time.Instant;
 import java.util.List;
@@ -39,10 +44,14 @@ public class AgentControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
+    @Autowired
+    private ObjectMapper objectMapper;
     @MockitoBean
     private TicketService ticketService;
     @MockitoBean
     private AgentStatsService agentStatsService;
+    @MockitoBean
+    private AgentProfileService agentProfileService;
     @MockitoBean
     private JwtDecoder jwtDecoder;
 
@@ -102,5 +111,47 @@ public class AgentControllerTest {
                 .andExpect(jsonPath("$.allSlaBreachedCount").value(2));
 
         then(agentStatsService).should().getAgentStats(agentId);
+    }
+
+    @Test
+    @DisplayName("Should successfully update agent status and return 204 No Content")
+    void shouldUpdateAgentStatusSuccessfully() throws Exception {
+        // given
+        UUID agentId = UUID.randomUUID();
+        AgentStatusUpdateRequest request = new AgentStatusUpdateRequest(AgentStatus.AVAILABLE);
+
+        // when
+        mockMvc.perform(put("/api/v1/agents/me/status")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request))
+                .with(jwt().jwt(builder -> builder.subject(agentId.toString()))
+                        .authorities(new SimpleGrantedAuthority("ROLE_AGENT"))))
+                // then
+                .andExpect(status().isNoContent());
+
+        then(agentProfileService).should().updateStatus(eq(agentId), eq(AgentStatus.AVAILABLE));
+    }
+
+    @Test
+    @DisplayName("Should return 400 Bad Request when status payload is empty")
+    void shouldReturnBadRequestWhenStatusIsNull() throws Exception {
+        // given
+        UUID agentId = UUID.randomUUID();
+        String invalidJson = "{}";
+
+        // when
+        mockMvc.perform(put("/api/v1/agents/me/status")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(invalidJson)
+                .with(jwt().jwt(builder -> builder.subject(agentId.toString()))
+                        .authorities(new SimpleGrantedAuthority("ROLE_AGENT"))))
+                // then
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.error").value("Bad Request"))
+                .andExpect(jsonPath("$.message")
+                        .value("Validation failed for field 'status': Status cannot be null"));
+
+        then(agentProfileService).shouldHaveNoInteractions();
     }
 }

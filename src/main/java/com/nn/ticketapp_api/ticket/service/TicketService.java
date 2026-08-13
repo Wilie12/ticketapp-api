@@ -7,6 +7,7 @@ import com.nn.ticketapp_api.ticket.api.request.TicketPatchRequest;
 import com.nn.ticketapp_api.ticket.api.response.TicketResponse;
 import com.nn.ticketapp_api.ticket.domain.Ticket;
 import com.nn.ticketapp_api.ticket.domain.TicketStatus;
+import com.nn.ticketapp_api.ticket.domain.event.TicketCreatedEvent;
 import com.nn.ticketapp_api.ticket.domain.event.TicketResolvedEvent;
 import com.nn.ticketapp_api.ticket.domain.policy.SlaPolicy;
 import com.nn.ticketapp_api.ticket.exception.TicketClosedException;
@@ -30,6 +31,8 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class TicketService {
+
+    private static final int MAX_ACTIVE_TICKETS = 5;
 
     private final TicketRepository ticketRepository;
     private final TicketMapper ticketMapper;
@@ -58,6 +61,8 @@ public class TicketService {
         );
 
         Ticket savedTicket = ticketRepository.save(ticket);
+
+        eventPublisher.publishEvent(new TicketCreatedEvent(savedTicket.getId(), savedTicket.getAssignedTeamId()));
         log.info("Successfully created ticket: {} with ID: {}", ticketNumber, savedTicket.getId());
 
         return ticketMapper.toResponse(savedTicket);
@@ -106,7 +111,13 @@ public class TicketService {
         Ticket ticket = getTicketOrThrow(ticketId);
         ticket.resolve(Instant.now(clock));
 
-        eventPublisher.publishEvent(new TicketResolvedEvent(ticketId, agentId, resolutionNote));
+        eventPublisher.publishEvent(new TicketResolvedEvent(
+                        ticketId,
+                        agentId,
+                        ticket.getAssignedTeamId(),
+                        resolutionNote
+                )
+        );
 
         log.info("Ticket {} successfully resolved", ticket.getTicketNumber());
         return ticketMapper.toResponse(ticket);
@@ -190,6 +201,30 @@ public class TicketService {
                 .findAllByAssignedAgentIdAndStatusIn(agentId, activeStatuses, pageable);
 
         return PageResponse.of(ticketPage.map(ticketMapper::toResponse));
+    }
+
+    @Transactional
+    public void evaluateAndFillAgentCapacity(UUID agentId, UUID teamId) {
+        log.debug("Evaluating capacity for agent: {} in team: {}", agentId, teamId);
+
+        long currentActiveTickets = ticketRepository.countByAssignedAgentIdAndStatus(agentId, TicketStatus.IN_PROGRESS);
+        int availableSlots = MAX_ACTIVE_TICKETS - (int) currentActiveTickets;
+
+        if (availableSlots <= 0) {
+            log.info("Agent {} is at full capacity ({}). Skipping queue evaluation.", agentId, MAX_ACTIVE_TICKETS);
+            return;
+        }
+
+        List<Ticket> ticketsToAssign = ticketRepository.findAndLockNextTicketsInQueue(
+                TicketStatus.NEW.name(),
+                teamId,
+                availableSlots
+        );
+
+        for (Ticket ticket : ticketsToAssign) {
+            ticket.assignToAgent(agentId);
+            log.info("Auto-assigned ticket {} from queue to agent {}", ticket.getTicketNumber(), agentId);
+        }
     }
 
     public void ensureTicketIsActive(UUID ticketId) {
