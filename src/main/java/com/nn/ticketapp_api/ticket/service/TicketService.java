@@ -1,5 +1,6 @@
 package com.nn.ticketapp_api.ticket.service;
 
+import com.nn.ticketapp_api.admin.service.SlaConfigurationService;
 import com.nn.ticketapp_api.shared.api.response.PageResponse;
 import com.nn.ticketapp_api.ticket.api.mapper.TicketMapper;
 import com.nn.ticketapp_api.ticket.api.request.TicketCreateRequest;
@@ -38,6 +39,7 @@ public class TicketService {
     private final TicketMapper ticketMapper;
     private final ApplicationEventPublisher eventPublisher;
     private final SlaPolicy slaPolicy;
+    private final SlaConfigurationService slaConfigurationService;
     private final Clock clock;
 
     @Transactional
@@ -48,7 +50,9 @@ public class TicketService {
         String ticketNumber = String.format("INC%07d", sequenceValue);
 
         Instant creationTime = Instant.now(clock);
-        Instant slaDeadline = slaPolicy.calculateDeadline(ticketCreateRequest.priority(), creationTime);
+
+        Integer resolutionHours = slaConfigurationService.getResolutionHours(ticketCreateRequest.priority());
+        Instant slaDeadline = slaPolicy.calculateDeadline(creationTime, resolutionHours);
 
         Ticket ticket = Ticket.createNew(
                 ticketNumber,

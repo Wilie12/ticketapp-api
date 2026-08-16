@@ -9,3 +9,5 @@ databaseChangeLog:
       file: db/changelog/changes/004-attachment-schema.yaml
   - include:
       file: db/changelog/changes/005-agent-profile-schema.yaml
+  - include:
+      file: db/changelog/changes/006-sla-configuration-schema.yaml

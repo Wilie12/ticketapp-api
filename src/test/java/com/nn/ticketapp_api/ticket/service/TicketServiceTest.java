@@ -1,5 +1,6 @@
 package com.nn.ticketapp_api.ticket.service;
 
+import com.nn.ticketapp_api.admin.service.SlaConfigurationService;
 import com.nn.ticketapp_api.shared.api.response.PageResponse;
 import com.nn.ticketapp_api.ticket.api.mapper.TicketMapper;
 import com.nn.ticketapp_api.ticket.api.request.TicketCreateRequest;
@@ -54,6 +55,8 @@ public class TicketServiceTest {
     private ApplicationEventPublisher applicationEventPublisher;
     @Mock
     private SlaPolicy slaPolicy;
+    @Mock
+    private SlaConfigurationService slaConfigurationService;
     @Spy
     private Clock clock = Clock.fixed(FIXED_NOW, ZoneId.of("UTC"));
     @InjectMocks
@@ -72,7 +75,9 @@ public class TicketServiceTest {
         Instant expectedSlaDeadline = FIXED_NOW.plusSeconds(7200);
 
         given(ticketRepository.getNextTicketNumberSequence()).willReturn(1L);
-        given(slaPolicy.calculateDeadline(eq(TicketPriority.LOW), eq(FIXED_NOW))).willReturn(expectedSlaDeadline);
+
+        given(slaConfigurationService.getResolutionHours(TicketPriority.LOW)).willReturn(48);
+        given(slaPolicy.calculateDeadline(eq(FIXED_NOW), eq(48))).willReturn(expectedSlaDeadline);
 
         Ticket savedTicket = buildTicket(
                 UUID.randomUUID(),
@@ -102,7 +107,8 @@ public class TicketServiceTest {
         assertThat(actualResponse.ticketNumber()).isEqualTo("INC0000001");
 
         then(ticketRepository).should().getNextTicketNumberSequence();
-        then(slaPolicy).should().calculateDeadline(eq(TicketPriority.LOW), eq(FIXED_NOW));
+        then(slaConfigurationService).should().getResolutionHours(TicketPriority.LOW);
+        then(slaPolicy).should().calculateDeadline(eq(FIXED_NOW), eq(48));
         then(ticketRepository).should().save(any(Ticket.class));
     }
 

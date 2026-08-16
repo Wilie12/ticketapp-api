@@ -1,0 +1,19 @@
+databaseChangeLog:
+  - changeSet:
+      id: 005-sla-configuration-schema
+      author: Wilie12
+      changes:
+        - createTable:
+            tableName: sla_configurations
+            columns:
+              - column:
+                  name: priority
+                  type: VARCHAR(50)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: resolution_hours
+                  type: INT
+                  constraints:
+                    nullable: false

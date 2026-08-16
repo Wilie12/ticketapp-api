@@ -1,6 +1,5 @@
 package com.nn.ticketapp_api.ticket.domain.policy;
 
-import com.nn.ticketapp_api.ticket.domain.TicketPriority;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -15,28 +14,14 @@ public class DefaultSlaPolicyTest {
     private final SlaPolicy slaPolicy = new DefaultSlaPolicy();
 
     @Test
-    @DisplayName("Should add 2 hours to creation time for CRITICAL priority")
-    void shouldCalculateDeadlineForCriticalPriority() {
+    @DisplayName("Should act as a pure function and add exact hours to creation time")
+    void shouldCalculateDeadlineDeterministically() {
         // given
-        TicketPriority priority = TicketPriority.CRITICAL;
-        Instant expectedDeadline = FIXED_NOW.plus(2, ChronoUnit.HOURS);
+        Integer resolutionHours = 12;
+        Instant expectedDeadline = FIXED_NOW.plus(12, ChronoUnit.HOURS);
 
         // when
-        Instant actualDeadline = slaPolicy.calculateDeadline(priority, FIXED_NOW);
-
-        // then
-        assertThat(actualDeadline).isEqualTo(expectedDeadline);
-    }
-
-    @Test
-    @DisplayName("Should add 24 hours to creation time for MEDIUM priority")
-    void shouldCalculateDeadlineForMediumPriority() {
-        // given
-        TicketPriority priority = TicketPriority.MEDIUM;
-        Instant expectedDeadline = FIXED_NOW.plus(24, ChronoUnit.HOURS);
-
-        // when
-        Instant actualDeadline = slaPolicy.calculateDeadline(priority, FIXED_NOW);
+        Instant actualDeadline = slaPolicy.calculateDeadline(FIXED_NOW, resolutionHours);
 
         // then
         assertThat(actualDeadline).isEqualTo(expectedDeadline);
