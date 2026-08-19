@@ -1,9 +1,12 @@
 package com.nn.ticketapp_api.agent.service;
 
+import com.nn.ticketapp_api.agent.api.mapper.AgentProfileMapper;
+import com.nn.ticketapp_api.agent.api.response.AgentProfileResponse;
 import com.nn.ticketapp_api.agent.domain.AgentProfile;
 import com.nn.ticketapp_api.agent.domain.AgentStatus;
 import com.nn.ticketapp_api.agent.domain.event.AgentAvailableEvent;
 import com.nn.ticketapp_api.agent.exception.AgentNotFoundException;
+import com.nn.ticketapp_api.agent.exception.AgentProfileAlreadyExistsException;
 import com.nn.ticketapp_api.agent.repository.AgentProfileRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +24,23 @@ public class AgentProfileService {
 
     private final AgentProfileRepository agentProfileRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final AgentProfileMapper agentProfileMapper;
+
+    @Transactional
+    public AgentProfileResponse createAgentProfile(UUID agentId, UUID teamId) {
+        log.debug("Provisioning new agent profile for agent {} in team {}", agentId, teamId);
+
+        if (agentProfileRepository.existsById(agentId)) {
+            log.warn("Provisioning failed: Agent profile for ID {} already exists", agentId);
+            throw new AgentProfileAlreadyExistsException(agentId);
+        }
+
+        AgentProfile profile = AgentProfile.create(agentId, teamId);
+        AgentProfile savedProfile = agentProfileRepository.save(profile);
+
+        log.info("Successfully provisioned agent profile for agent {}", agentId);
+        return agentProfileMapper.toResponse(savedProfile);
+    }
 
     @Transactional
     public void updateStatus(UUID agentId, AgentStatus newStatus) {
