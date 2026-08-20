@@ -1,5 +1,6 @@
 package com.nn.ticketapp_api.shared.api.advice;
 
+import com.nn.ticketapp_api.agent.exception.AgentProfileAlreadyExistsException;
 import com.nn.ticketapp_api.communication.exception.AttachmentNotFoundException;
 import com.nn.ticketapp_api.communication.exception.AttachmentOwnershipException;
 import com.nn.ticketapp_api.communication.exception.InvalidAttachmentException;
@@ -106,7 +107,11 @@ public class GlobalExceptionHandler {
         );
     }
 
-    @ExceptionHandler({TicketClosedException.class, InvalidStatusTransitionException.class})
+    @ExceptionHandler({
+            TicketClosedException.class,
+            InvalidStatusTransitionException.class,
+            AgentProfileAlreadyExistsException.class
+    })
     @ResponseStatus(HttpStatus.CONFLICT)
     public ErrorResponse handleConflictExceptions(
             RuntimeException e,

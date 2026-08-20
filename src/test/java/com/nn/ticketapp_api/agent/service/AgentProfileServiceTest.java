@@ -66,7 +66,7 @@ public class AgentProfileServiceTest {
 
         // then
         assertThat(actualResponse).isNotNull();
-        assertThat(actualResponse.id()).isEqualTo(agentId);
+        assertThat(actualResponse.agentId()).isEqualTo(agentId);
         assertThat(actualResponse.teamId()).isEqualTo(teamId);
         assertThat(actualResponse.status()).isEqualTo(AgentStatus.OFFLINE);
 

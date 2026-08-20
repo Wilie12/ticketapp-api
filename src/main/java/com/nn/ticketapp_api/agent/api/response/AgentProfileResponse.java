@@ -6,7 +6,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 public record AgentProfileResponse(
-        UUID id,
+        UUID agentId,
         UUID teamId,
         AgentStatus status,
         Instant updatedAt
