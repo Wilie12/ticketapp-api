@@ -2,6 +2,13 @@ package com.nn.ticketapp_api.communication.repository;
 
 import com.nn.ticketapp_api.BaseIntegrationTest;
 import com.nn.ticketapp_api.communication.domain.Attachment;
+import com.nn.ticketapp_api.team.domain.Team;
+import com.nn.ticketapp_api.team.repository.TeamRepository;
+import com.nn.ticketapp_api.ticket.domain.Ticket;
+import com.nn.ticketapp_api.ticket.domain.TicketPriority;
+import com.nn.ticketapp_api.ticket.domain.TicketStatus;
+import com.nn.ticketapp_api.ticket.repository.TicketRepository;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,12 +22,37 @@ public class AttachmentRepositoryTest extends BaseIntegrationTest {
 
     @Autowired
     private AttachmentRepository attachmentRepository;
+    @Autowired
+    private TicketRepository ticketRepository;
+    @Autowired
+    private TeamRepository teamRepository;
+
+    @AfterEach
+    void tearDown() {
+        attachmentRepository.deleteAllInBatch();
+        ticketRepository.deleteAllInBatch();
+        teamRepository.deleteAllInBatch();
+    }
 
     @Test
-    @DisplayName("Should successfully persist attachment metadata and retireve them ordered by upload date")
+    @DisplayName("Should successfully persist attachment metadata and retrieve them ordered by upload date")
     void shouldPersistAndRetrieveAttachmentMetadata() throws InterruptedException {
         // given
-        UUID ticketId = UUID.randomUUID();
+        Team team = Team.create("Attach Team", "Desc");
+        teamRepository.saveAndFlush(team);
+
+        Ticket ticket = Ticket.builder()
+                .ticketNumber("INC0000001")
+                .title("Attachment Ticket")
+                .description("Test")
+                .priority(TicketPriority.HIGH)
+                .status(TicketStatus.NEW)
+                .creatorId(UUID.randomUUID())
+                .assignedTeamId(team.getId())
+                .build();
+        ticketRepository.saveAndFlush(ticket);
+
+        UUID ticketId = ticket.getId();
         UUID authorId = UUID.randomUUID();
 
         Attachment firstAttachment = Attachment.create(

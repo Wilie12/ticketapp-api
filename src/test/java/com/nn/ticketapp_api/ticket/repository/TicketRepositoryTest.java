@@ -1,6 +1,8 @@
 package com.nn.ticketapp_api.ticket.repository;
 
 import com.nn.ticketapp_api.BaseIntegrationTest;
+import com.nn.ticketapp_api.agent.domain.AgentProfile;
+import com.nn.ticketapp_api.agent.repository.AgentProfileRepository;
 import com.nn.ticketapp_api.team.domain.Team;
 import com.nn.ticketapp_api.team.repository.TeamRepository;
 import com.nn.ticketapp_api.ticket.domain.Ticket;
@@ -26,10 +28,13 @@ public class TicketRepositoryTest extends BaseIntegrationTest {
     private TicketRepository ticketRepository;
     @Autowired
     private TeamRepository teamRepository;
+    @Autowired
+    private AgentProfileRepository agentProfileRepository;
 
     @AfterEach
     void tearDown() {
         ticketRepository.deleteAllInBatch();
+        agentProfileRepository.deleteAllInBatch();
         teamRepository.deleteAllInBatch();
     }
 
@@ -157,12 +162,15 @@ public class TicketRepositoryTest extends BaseIntegrationTest {
         );
         ticketRepository.saveAndFlush(secondQueueTicket);
 
+        AgentProfile assignedAgent = AgentProfile.create(UUID.randomUUID(), targetTeamId);
+        agentProfileRepository.saveAndFlush(assignedAgent);
+
         Ticket assignedTicket = buildTicket(
                 "INC0000003",
                 TicketStatus.IN_PROGRESS,
                 creatorId,
                 targetTeamId,
-                UUID.randomUUID()
+                assignedAgent.getId()
         );
         ticketRepository.saveAndFlush(assignedTicket);
 
@@ -199,6 +207,9 @@ public class TicketRepositoryTest extends BaseIntegrationTest {
         UUID teamId = team.getId();
 
         UUID agentId = UUID.randomUUID();
+        AgentProfile agent = AgentProfile.create(agentId, teamId);
+        agentProfileRepository.saveAndFlush(agent);
+
         UUID creatorId = UUID.randomUUID();
 
         Ticket inProgressTicket = buildTicket(
@@ -256,6 +267,9 @@ public class TicketRepositoryTest extends BaseIntegrationTest {
         UUID teamId = team.getId();
 
         UUID agentId = UUID.randomUUID();
+        AgentProfile agent = AgentProfile.create(agentId, teamId);
+        agentProfileRepository.saveAndFlush(agent);
+
         UUID creatorId = UUID.randomUUID();
 
         for (int i = 0; i < 3; i++) {

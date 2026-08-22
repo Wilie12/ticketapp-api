@@ -1,6 +1,8 @@
 package com.nn.ticketapp_api.ticket.repository;
 
 import com.nn.ticketapp_api.BaseIntegrationTest;
+import com.nn.ticketapp_api.agent.domain.AgentProfile;
+import com.nn.ticketapp_api.agent.repository.AgentProfileRepository;
 import com.nn.ticketapp_api.team.domain.Team;
 import com.nn.ticketapp_api.team.repository.TeamRepository;
 import com.nn.ticketapp_api.ticket.domain.Ticket;
@@ -30,6 +32,8 @@ public class AgentStatsRepositoryTest extends BaseIntegrationTest {
     private TicketRepository ticketRepository;
     @Autowired
     private TeamRepository teamRepository;
+    @Autowired
+    private AgentProfileRepository agentProfileRepository;
 
     private final Instant fixedNow = Instant.parse("2026-08-06T14:00:00Z");
     private final Clock fixedClock = Clock.fixed(fixedNow, ZoneId.of("UTC"));
@@ -37,6 +41,7 @@ public class AgentStatsRepositoryTest extends BaseIntegrationTest {
     @AfterEach
     void tearDown() {
         ticketRepository.deleteAllInBatch();
+        agentProfileRepository.deleteAllInBatch();
         teamRepository.deleteAllInBatch();
     }
 
@@ -48,8 +53,12 @@ public class AgentStatsRepositoryTest extends BaseIntegrationTest {
         teamRepository.saveAndFlush(team);
         UUID teamId = team.getId();
 
-        UUID targetAgentId = UUID.randomUUID();
-        UUID otherAgentId = UUID.randomUUID();
+        AgentProfile targetAgent = AgentProfile.create(UUID.randomUUID(), teamId);
+        AgentProfile otherAgent = AgentProfile.create(UUID.randomUUID(), teamId);
+        agentProfileRepository.saveAllAndFlush(List.of(targetAgent, otherAgent));
+
+        UUID targetAgentId = targetAgent.getId();
+        UUID otherAgentId = otherAgent.getId();
         Instant now = Instant.now(fixedClock);
 
         Ticket firstTicket = buildTicket(

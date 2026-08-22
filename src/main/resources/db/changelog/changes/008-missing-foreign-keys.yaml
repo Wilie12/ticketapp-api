@@ -1,0 +1,31 @@
+databaseChangeLog:
+  - changeSet:
+      id: 008-missing-foreign-keys
+      author: Wilie12
+      changes:
+        - addForeignKeyConstraint:
+            baseTableName: tickets
+            baseColumnNames: assigned_agent_id
+            constraintName: fk_tickets_agent_id
+            referencedTableName: agent_profiles
+            referencedColumnNames: id
+            onDelete: RESTRICT
+            onUpdate: CASCADE
+
+        - addForeignKeyConstraint:
+            baseTableName: communications
+            baseColumnNames: ticket_id
+            constraintName: fk_communications_ticket_id
+            referencedTableName: tickets
+            referencedColumnNames: id
+            onDelete: CASCADE
+            onUpdate: CASCADE
+
+        - addForeignKeyConstraint:
+            baseTableName: attachments
+            baseColumnNames: ticket_id
+            constraintName: fk_attachments_ticket_id
+            referencedTableName: tickets
+            referencedColumnNames: id
+            onDelete: CASCADE
+            onUpdate: CASCADE
