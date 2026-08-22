@@ -1,6 +1,8 @@
 package com.nn.ticketapp_api.ticket.repository;
 
 import com.nn.ticketapp_api.BaseIntegrationTest;
+import com.nn.ticketapp_api.team.domain.Team;
+import com.nn.ticketapp_api.team.repository.TeamRepository;
 import com.nn.ticketapp_api.ticket.domain.Ticket;
 import com.nn.ticketapp_api.ticket.domain.TicketPriority;
 import com.nn.ticketapp_api.ticket.domain.TicketStatus;
@@ -22,10 +24,13 @@ public class TicketRepositoryTest extends BaseIntegrationTest {
 
     @Autowired
     private TicketRepository ticketRepository;
+    @Autowired
+    private TeamRepository teamRepository;
 
     @AfterEach
     void tearDown() {
         ticketRepository.deleteAllInBatch();
+        teamRepository.deleteAllInBatch();
     }
 
     @Test
@@ -46,6 +51,9 @@ public class TicketRepositoryTest extends BaseIntegrationTest {
     @DisplayName("Should accurately persist and retrieve Instant fields mapping to TIMESTAMP WITH TIME ZONE")
     void shouldPersistTimeFieldsAccurately() {
         // given
+        Team team = Team.create("Time Team", "Desc");
+        teamRepository.saveAndFlush(team);
+
         Instant expectedSlaDeadline = Instant.parse("2026-08-03T12:00:00Z");
         Instant expectedResolvedAt = Instant.parse("2026-08-04T12:00:00Z");
 
@@ -56,7 +64,7 @@ public class TicketRepositoryTest extends BaseIntegrationTest {
                 .priority(TicketPriority.MEDIUM)
                 .status(TicketStatus.RESOLVED)
                 .creatorId(UUID.randomUUID())
-                .assignedTeamId(UUID.randomUUID())
+                .assignedTeamId(team.getId())
                 .slaDeadline(expectedSlaDeadline)
                 .resolvedAt(expectedResolvedAt)
                 .build();
@@ -74,9 +82,12 @@ public class TicketRepositoryTest extends BaseIntegrationTest {
     @DisplayName("Should return tickets created by a user in descending order (newest first)")
     void shouldFindAllByCreatorIdOrderByCreatedAtDesc() throws InterruptedException {
         // given
+        Team team = Team.create("Alpha Team", "Desc");
+        teamRepository.saveAndFlush(team);
+        UUID teamId = team.getId();
+
         UUID targetCreatorId = UUID.randomUUID();
         UUID otherCreatorId = UUID.randomUUID();
-        UUID teamId = UUID.randomUUID();
 
         Ticket oldTicket = buildTicket(
                 "INC0000001",
@@ -119,8 +130,12 @@ public class TicketRepositoryTest extends BaseIntegrationTest {
     @DisplayName("Should return unassigned tickets for a specific team in ascending order (oldest first)")
     void shouldFindTeamFifoQueue() throws InterruptedException {
         // given
-        UUID targetTeamId = UUID.randomUUID();
-        UUID otherTeamId = UUID.randomUUID();
+        Team targetTeam = Team.create("Target Team", "Desc");
+        Team otherTeam = Team.create("Other Team", "Desc");
+        teamRepository.saveAllAndFlush(List.of(targetTeam, otherTeam));
+
+        UUID targetTeamId = targetTeam.getId();
+        UUID otherTeamId = otherTeam.getId();
         UUID creatorId = UUID.randomUUID();
 
         Ticket firstQueueTicket = buildTicket(
@@ -179,9 +194,12 @@ public class TicketRepositoryTest extends BaseIntegrationTest {
     @DisplayName("Should return agent's tickets matching specific statuses in descending order")
     void shouldFindAgentBacklogByStatuses() throws InterruptedException {
         // given
+        Team team = Team.create("Backlog Team", "Desc");
+        teamRepository.saveAndFlush(team);
+        UUID teamId = team.getId();
+
         UUID agentId = UUID.randomUUID();
         UUID creatorId = UUID.randomUUID();
-        UUID teamId = UUID.randomUUID();
 
         Ticket inProgressTicket = buildTicket(
                 "INC0000001",
@@ -233,9 +251,12 @@ public class TicketRepositoryTest extends BaseIntegrationTest {
     @DisplayName("Should calculate statistics accurately for an agent based on status")
     void shouldCountAgentTicketsByStatus() {
         // given
+        Team team = Team.create("Count Team", "Desc");
+        teamRepository.saveAndFlush(team);
+        UUID teamId = team.getId();
+
         UUID agentId = UUID.randomUUID();
         UUID creatorId = UUID.randomUUID();
-        UUID teamId = UUID.randomUUID();
 
         for (int i = 0; i < 3; i++) {
             Ticket resolvedTicket = buildTicket(
