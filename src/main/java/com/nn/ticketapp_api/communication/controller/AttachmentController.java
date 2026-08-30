@@ -18,7 +18,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/tickets/{ticketId}/attachments")
 @RequiredArgsConstructor
-@PreAuthorize("hasAnyRole('USER', 'AGENT', 'ADMIN')")
+@PreAuthorize("isAuthenticated()")
 public class AttachmentController {
 
     private final AttachmentService attachmentService;

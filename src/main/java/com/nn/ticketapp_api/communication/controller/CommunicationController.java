@@ -18,7 +18,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/tickets/{id}")
 @RequiredArgsConstructor
-@PreAuthorize("hasAnyRole('USER', 'AGENT', 'ADMIN')")
+@PreAuthorize("isAuthenticated()")
 public class CommunicationController {
 
     private final CommunicationService communicationService;
@@ -41,12 +41,13 @@ public class CommunicationController {
 
     @PostMapping("/work-notes")
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAnyRole('AGENT', 'ADMIN')")
     public CommunicationResponse addWorkNote(
             @PathVariable("id") UUID ticketId,
             @Valid @RequestBody CommunicationCreateRequest request,
             @CurrentRequester RequesterContext requesterContext
     ) {
+        requesterContext.requireInternal();
+
         log.debug("Received request to add work note to ticket: {} from user: {}", ticketId, requesterContext.userId());
 
         return communicationService.addWorkNote(ticketId, requesterContext.userId(), request.content());

@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/v1/agents")
 @RequiredArgsConstructor
-@PreAuthorize("hasAnyRole('AGENT', 'ADMIN')")
+@PreAuthorize("isAuthenticated()")
 public class AgentController {
 
     private final TicketService ticketService;
@@ -36,6 +36,8 @@ public class AgentController {
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
             @CurrentRequester RequesterContext requesterContext
     ) {
+        requesterContext.requireInternal();
+
         log.debug("Received request to get assigned tickets for agent: {}", requesterContext.userId());
 
         return ticketService.getAgentTickets(requesterContext.userId(), pageable);
@@ -44,6 +46,8 @@ public class AgentController {
     @GetMapping("/me/stats")
     @ResponseStatus(HttpStatus.OK)
     public StatsResponse getAgentStats(@CurrentRequester RequesterContext requesterContext) {
+        requesterContext.requireInternal();
+
         log.debug("Received request to get statistics for agent: {}", requesterContext.userId());
 
         return agentStatsService.getAgentStats(requesterContext.userId());
@@ -55,6 +59,8 @@ public class AgentController {
             @Valid @RequestBody AgentStatusUpdateRequest agentStatusUpdateRequest,
             @CurrentRequester RequesterContext requesterContext
     ) {
+        requesterContext.requireInternal();
+
         log.debug(
                 "Received request to update status for agent {} to {}",
                 requesterContext.userId(),
