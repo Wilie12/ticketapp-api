@@ -4,7 +4,6 @@ import com.nn.ticketapp_api.communication.api.request.CommunicationCreateRequest
 import com.nn.ticketapp_api.communication.api.response.CommunicationResponse;
 import com.nn.ticketapp_api.communication.domain.CommunicationType;
 import com.nn.ticketapp_api.communication.service.CommunicationService;
-import com.nn.ticketapp_api.shared.api.advice.GlobalExceptionHandler;
 import com.nn.ticketapp_api.shared.config.WebMvcConfig;
 import com.nn.ticketapp_api.shared.security.SecurityConfig;
 import org.junit.jupiter.api.DisplayName;
@@ -13,7 +12,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -23,10 +21,10 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
 
+import static com.nn.ticketapp_api.shared.security.SecurityTestUtils.validJwt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -68,8 +66,7 @@ public class CommunicationControllerTest {
 
         // when
         mockMvc.perform(post("/api/v1/tickets/{id}/comments", ticketId)
-                        .with(jwt().jwt(builder -> builder.subject(authorId.toString()))
-                                .authorities(new SimpleGrantedAuthority("ROLE_USER")))
+                        .with(validJwt(authorId, "ROLE_USER"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 // then
@@ -86,14 +83,12 @@ public class CommunicationControllerTest {
     void shouldRejectInvalidComment() throws Exception {
         // given
         UUID ticketId = UUID.randomUUID();
-        UUID authorId = UUID.randomUUID();
 
         CommunicationCreateRequest request = new CommunicationCreateRequest("x");
 
         // when
         mockMvc.perform(post("/api/v1/tickets/{id}/comments", ticketId)
-                        .with(jwt().jwt(builder -> builder.subject(authorId.toString()))
-                                .authorities(new SimpleGrantedAuthority("ROLE_USER")))
+                        .with(validJwt(UUID.randomUUID(), "ROLE_USER"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 // then
@@ -124,8 +119,7 @@ public class CommunicationControllerTest {
 
         // when
         mockMvc.perform(post("/api/v1/tickets/{id}/work-notes", ticketId)
-                        .with(jwt().jwt(builder -> builder.subject(agentId.toString()))
-                                .authorities(new SimpleGrantedAuthority("ROLE_AGENT")))
+                        .with(validJwt(agentId, "ROLE_AGENT"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 // then
@@ -142,14 +136,12 @@ public class CommunicationControllerTest {
     void shouldReturn403WhenUserTriesToAddWorkNote() throws Exception {
         // given
         UUID ticketId = UUID.randomUUID();
-        UUID userId = UUID.randomUUID();
 
         CommunicationCreateRequest request = new CommunicationCreateRequest("Test work note");
 
         // when
         mockMvc.perform(post("/api/v1/tickets/{id}/work-notes", ticketId)
-                        .with(jwt().jwt(builder -> builder.subject(userId.toString()))
-                                .authorities(new SimpleGrantedAuthority("ROLE_USER")))
+                        .with(validJwt(UUID.randomUUID(), "ROLE_USER"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 // then

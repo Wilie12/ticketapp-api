@@ -1,12 +1,9 @@
 package com.nn.ticketapp_api.communication.controller;
 
-import com.nn.ticketapp_api.communication.api.advice.CommunicationExceptionHandler;
 import com.nn.ticketapp_api.communication.api.response.AttachmentResponse;
-import com.nn.ticketapp_api.communication.domain.Attachment;
 import com.nn.ticketapp_api.communication.exception.AttachmentOwnershipException;
 import com.nn.ticketapp_api.communication.exception.InvalidAttachmentException;
 import com.nn.ticketapp_api.communication.service.AttachmentService;
-import com.nn.ticketapp_api.shared.api.advice.GlobalExceptionHandler;
 import com.nn.ticketapp_api.shared.config.WebMvcConfig;
 import com.nn.ticketapp_api.shared.security.SecurityConfig;
 import org.junit.jupiter.api.DisplayName;
@@ -15,7 +12,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.mock.web.MockMultipartFile;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -24,12 +20,12 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
 
+import static com.nn.ticketapp_api.shared.security.SecurityTestUtils.validJwt;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.doThrow;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -74,8 +70,7 @@ public class AttachmentControllerTest {
         // when
         mockMvc.perform(multipart("/api/v1/tickets/{ticketId}/attachments", ticketId)
                         .file(mockFile)
-                        .with(jwt().jwt(builder -> builder.subject(authorId.toString()))
-                                .authorities(new SimpleGrantedAuthority("ROLE_USER"))))
+                        .with(validJwt(authorId, "ROLE_USER")))
                 // then
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.filename").value("log.txt"))
@@ -105,8 +100,7 @@ public class AttachmentControllerTest {
         // when
         mockMvc.perform(multipart("/api/v1/tickets/{ticketId}/attachments", ticketId)
                         .file(maliciousFile)
-                        .with(jwt().jwt(builder -> builder.subject(authorId.toString()))
-                                .authorities(new SimpleGrantedAuthority("ROLE_USER"))))
+                        .with(validJwt(authorId, "ROLE_USER")))
                 // then
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.title").value("Bad Request"))
@@ -124,8 +118,7 @@ public class AttachmentControllerTest {
 
         // when
         mockMvc.perform(delete("/api/v1/tickets/{ticketId}/attachments/{attachmentId}", ticketId, attachmentId)
-                        .with(jwt().jwt(builder -> builder.subject(requesterId.toString()))
-                                .authorities(new SimpleGrantedAuthority("ROLE_USER"))))
+                        .with(validJwt(requesterId, "ROLE_USER")))
                 // then
                 .andExpect(status().isNoContent());
 
@@ -145,8 +138,7 @@ public class AttachmentControllerTest {
 
         // when
         mockMvc.perform(delete("/api/v1/tickets/{ticketId}/attachments/{attachmentId}", ticketId, attachmentId)
-                        .with(jwt().jwt(builder -> builder.subject(maliciousUserId.toString()))
-                                .authorities(new SimpleGrantedAuthority("ROLE_USER"))))
+                        .with(validJwt(maliciousUserId, "ROLE_USER")))
                 // then
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.title").value("Forbidden"))

@@ -1,11 +1,9 @@
 package com.nn.ticketapp_api.ticket.controller;
 
-import com.nn.ticketapp_api.shared.api.advice.GlobalExceptionHandler;
 import com.nn.ticketapp_api.shared.api.response.PageResponse;
 import com.nn.ticketapp_api.shared.config.WebMvcConfig;
 import com.nn.ticketapp_api.shared.security.SecurityConfig;
 import com.nn.ticketapp_api.shared.security.domain.RequesterContext;
-import com.nn.ticketapp_api.ticket.api.advice.TicketExceptionHandler;
 import com.nn.ticketapp_api.ticket.api.request.ResolutionRequest;
 import com.nn.ticketapp_api.ticket.api.request.TicketCreateRequest;
 import com.nn.ticketapp_api.ticket.api.request.TicketPatchRequest;
@@ -26,7 +24,6 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -37,11 +34,11 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+import static com.nn.ticketapp_api.shared.security.SecurityTestUtils.validJwt;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -91,8 +88,7 @@ public class TicketControllerTest {
         mockMvc.perform(post("/api/v1/tickets")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
-                        .with(jwt().jwt(builder -> builder.subject(userId.toString()))
-                                .authorities(new SimpleGrantedAuthority("ROLE_USER"))))
+                        .with(validJwt(userId, "ROLE_USER")))
                 // then
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.ticketNumber").value("INC0000001"))
@@ -106,7 +102,6 @@ public class TicketControllerTest {
     @DisplayName("Should return 400 Bad Request when validation fails")
     void shouldReturn400WhenValidationFails() throws Exception {
         // given
-        UUID userId = UUID.randomUUID();
         TicketCreateRequest invalidRequest = new TicketCreateRequest(
                 "Bad",
                 "Desc",
@@ -118,8 +113,7 @@ public class TicketControllerTest {
         mockMvc.perform(post("/api/v1/tickets")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(invalidRequest))
-                        .with(jwt().jwt(builder -> builder.subject(userId.toString()))
-                                .authorities(new SimpleGrantedAuthority("ROLE_USER"))))
+                        .with(validJwt(UUID.randomUUID(), "ROLE_USER")))
                 // then
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value(400))
@@ -149,8 +143,7 @@ public class TicketControllerTest {
 
         // when
         mockMvc.perform(get("/api/v1/tickets")
-                        .with(jwt().jwt(builder -> builder.subject(userId.toString()))
-                                .authorities(new SimpleGrantedAuthority("ROLE_USER"))))
+                        .with(validJwt(userId, "ROLE_USER")))
                 // then
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.size()").value(1))
@@ -165,7 +158,6 @@ public class TicketControllerTest {
     @DisplayName("Should return ticket details and 200 OK when user owns the ticket")
     void shouldReturnTicketDetails() throws Exception {
         // given
-        UUID requesterId = UUID.randomUUID();
         UUID ticketId = UUID.randomUUID();
 
         TicketDetailsResponse mockResponse = new TicketDetailsResponse(
@@ -188,8 +180,7 @@ public class TicketControllerTest {
 
         // when
         mockMvc.perform(get("/api/v1/tickets/{id}", ticketId)
-                        .with(jwt().jwt(builder -> builder.subject(requesterId.toString()))
-                                .authorities(new SimpleGrantedAuthority("ROLE_USER"))))
+                        .with(validJwt(UUID.randomUUID(), "ROLE_USER")))
                 // then
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(ticketId.toString()))
@@ -203,7 +194,6 @@ public class TicketControllerTest {
     @DisplayName("Should return 404 Not Found when ticket does not exist")
     void shouldReturn404WhenTicketNotFound() throws Exception {
         // given
-        UUID requesterId = UUID.randomUUID();
         UUID ticketId = UUID.randomUUID();
 
         given(ticketFacade.getTicketDetails(eq(ticketId), any(RequesterContext.class)))
@@ -211,8 +201,7 @@ public class TicketControllerTest {
 
         // when
         mockMvc.perform(get("/api/v1/tickets/{id}", ticketId)
-                        .with(jwt().jwt(builder -> builder.subject(requesterId.toString()))
-                                .authorities(new SimpleGrantedAuthority("ROLE_USER"))))
+                        .with(validJwt(UUID.randomUUID(), "ROLE_USER")))
                 // then
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.status").value(404))
@@ -235,8 +224,7 @@ public class TicketControllerTest {
 
         // when
         mockMvc.perform(get("/api/v1/tickets/{id}", ticketId)
-                        .with(jwt().jwt(builder -> builder.subject(fakeRequesterId.toString()))
-                                .authorities(new SimpleGrantedAuthority("ROLE_USER"))))
+                        .with(validJwt(fakeRequesterId, "ROLE_USER")))
                 // then
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.status").value(403))
@@ -267,8 +255,7 @@ public class TicketControllerTest {
 
         // when
         mockMvc.perform(post("/api/v1/tickets/{id}/assign", ticketId)
-                        .with(jwt().jwt(builder -> builder.subject(agentId.toString()))
-                                .authorities(new SimpleGrantedAuthority("ROLE_AGENT"))))
+                        .with(validJwt(agentId, "ROLE_AGENT")))
                 // then
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("IN_PROGRESS"));
@@ -280,13 +267,11 @@ public class TicketControllerTest {
     @DisplayName("Should return 403 Forbidden when standard USER tries to assign a ticket")
     void shouldReturn403WhenUserTriesToAssignATicket() throws Exception {
         // given
-        UUID userId = UUID.randomUUID();
         UUID ticketId = UUID.randomUUID();
 
         // when
         mockMvc.perform(post("/api/v1/tickets/{id}/assign", ticketId)
-                        .with(jwt().jwt(builder -> builder.subject(userId.toString()))
-                                .authorities(new SimpleGrantedAuthority("ROLE_USER"))))
+                        .with(validJwt(UUID.randomUUID(), "ROLE_USER")))
                 // then
                 .andExpect(status().isForbidden());
 
@@ -316,8 +301,7 @@ public class TicketControllerTest {
         mockMvc.perform(post("/api/v1/tickets/{id}/resolve", ticketId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
-                        .with(jwt().jwt(builder -> builder.subject(agentId.toString()))
-                                .authorities(new SimpleGrantedAuthority("ROLE_AGENT"))))
+                        .with(validJwt(agentId, "ROLE_AGENT")))
                 // then
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("RESOLVED"));
@@ -340,8 +324,7 @@ public class TicketControllerTest {
         mockMvc.perform(post("/api/v1/tickets/{id}/resolve", ticketId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
-                        .with(jwt().jwt(builder -> builder.subject(agentId.toString()))
-                                .authorities(new SimpleGrantedAuthority("ROLE_AGENT"))))
+                        .with(validJwt(agentId, "ROLE_AGENT")))
                 // then
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.status").value(409))
@@ -370,8 +353,7 @@ public class TicketControllerTest {
         mockMvc.perform(patch("/api/v1/tickets/{id}", ticketId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
-                        .with(jwt().jwt(builder -> builder.subject(agentId.toString()))
-                                .authorities(new SimpleGrantedAuthority("ROLE_AGENT"))))
+                        .with(validJwt(agentId, "ROLE_AGENT")))
                 // then
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.status").value(409))
@@ -402,8 +384,7 @@ public class TicketControllerTest {
 
         // when
         mockMvc.perform(post("/api/v1/tickets/{id}/reopen", ticketId)
-                        .with(jwt().jwt(builder -> builder.subject(requesterId.toString()))
-                                .authorities(new SimpleGrantedAuthority("ROLE_USER"))))
+                        .with(validJwt(requesterId, "ROLE_USER")))
                 // then
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("IN_PROGRESS"))
@@ -441,8 +422,7 @@ public class TicketControllerTest {
         mockMvc.perform(patch("/api/v1/tickets/{id}", ticketId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
-                        .with(jwt().jwt(builder -> builder.subject(agentId.toString()))
-                                .authorities(new SimpleGrantedAuthority("ROLE_AGENT"))))
+                        .with(validJwt(agentId, "ROLE_AGENT")))
                 // then
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.title").value("New title"));
@@ -451,10 +431,9 @@ public class TicketControllerTest {
     }
 
     @Test
-    @DisplayName("Should return 403 Forbidden when standard USEr tries to modify a ticket via PATCH")
+    @DisplayName("Should return 403 Forbidden when standard USER tries to modify a ticket via PATCH")
     void shouldReturn403WhenUserTriesToPatchTicket() throws Exception {
         // given
-        UUID userId = UUID.randomUUID();
         UUID ticketId = UUID.randomUUID();
 
         TicketPatchRequest request = new TicketPatchRequest(
@@ -467,8 +446,7 @@ public class TicketControllerTest {
         mockMvc.perform(patch("/api/v1/tickets/{id}", ticketId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
-                        .with(jwt().jwt(builder -> builder.subject(userId.toString()))
-                                .authorities(new SimpleGrantedAuthority("ROLE_USER"))))
+                        .with(validJwt(UUID.randomUUID(), "ROLE_USER")))
                 // then
                 .andExpect(status().isForbidden());
 
@@ -479,7 +457,6 @@ public class TicketControllerTest {
     @DisplayName("Should return paginated unassigned tickets queue and 200 OK")
     void shouldReturnUnassignedQueue() throws Exception {
         // given
-        UUID agentId = UUID.randomUUID();
         UUID teamId = UUID.randomUUID();
 
         TicketResponse mockResponse = new TicketResponse(
@@ -507,8 +484,7 @@ public class TicketControllerTest {
                 .param("teamId", teamId.toString())
                 .param("page", "0")
                 .param("size", "20")
-                .with(jwt().jwt(builder -> builder.subject(agentId.toString()))
-                        .authorities(new SimpleGrantedAuthority("ROLE_AGENT"))))
+                .with(validJwt(UUID.randomUUID(), "ROLE_AGENT")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].ticketNumber").value("INC0000001"))
                 .andExpect(jsonPath("$.totalElements").value(1));
