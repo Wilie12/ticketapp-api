@@ -1,0 +1,53 @@
+databaseChangeLog:
+  - changeSet:
+      id: 007-team-schema
+      author: Wilie12
+      changes:
+        - createTable:
+            tableName: teams
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+                    unique: true
+              - column:
+                  name: description
+                  type: TEXT
+              - column:
+                  name: created_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+
+        - addForeignKeyConstraint:
+            baseTableName: agent_profiles
+            baseColumnNames: team_id
+            constraintName: fk_agent_profiles_team_id
+            referencedTableName: teams
+            referencedColumnNames: id
+            onDelete: RESTRICT
+            onUpdate: CASCADE
+
+        - addForeignKeyConstraint:
+            baseTableName: tickets
+            baseColumnNames: assigned_team_id
+            constraintName: fk_tickets_team_id
+            referencedTableName: teams
+            referencedColumnNames: id
+            onDelete: RESTRICT
+            onUpdate: CASCADE

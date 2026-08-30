@@ -3,6 +3,8 @@ package com.nn.ticketapp_api.agent.repository;
 import com.nn.ticketapp_api.BaseIntegrationTest;
 import com.nn.ticketapp_api.agent.domain.AgentProfile;
 import com.nn.ticketapp_api.agent.domain.AgentStatus;
+import com.nn.ticketapp_api.team.domain.Team;
+import com.nn.ticketapp_api.team.repository.TeamRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -18,19 +20,24 @@ public class AgentProfileRepositoryTest extends BaseIntegrationTest {
 
     @Autowired
     private AgentProfileRepository agentProfileRepository;
+    @Autowired
+    private TeamRepository teamRepository;
 
     @AfterEach
     void tearDown() {
         agentProfileRepository.deleteAllInBatch();
+        teamRepository.deleteAllInBatch();
     }
 
     @Test
     @DisplayName("Should successfully persist AgentProfile and retrieve it with default OFFLINE status")
     void shouldPersistAndRetrieveAgentProfile() {
         // given
+        Team team = Team.create("Infrastructure", "Core IT");
+        teamRepository.saveAndFlush(team);
+
         UUID agentId = UUID.randomUUID();
-        UUID teamId = UUID.randomUUID();
-        AgentProfile agentProfile = AgentProfile.create(agentId, teamId);
+        AgentProfile agentProfile = AgentProfile.create(agentId, team.getId());
 
         // when
         agentProfileRepository.saveAndFlush(agentProfile);
@@ -38,7 +45,7 @@ public class AgentProfileRepositoryTest extends BaseIntegrationTest {
         // then
         Optional<AgentProfile> retrievedProfile = agentProfileRepository.findById(agentId);
         assertThat(retrievedProfile).isPresent();
-        assertThat(retrievedProfile.get().getTeamId()).isEqualTo(teamId);
+        assertThat(retrievedProfile.get().getTeamId()).isEqualTo(team.getId());
         assertThat(retrievedProfile.get().getStatus()).isEqualTo(AgentStatus.OFFLINE);
         assertThat(retrievedProfile.get().getUpdatedAt()).isNotNull();
     }
@@ -47,9 +54,11 @@ public class AgentProfileRepositoryTest extends BaseIntegrationTest {
     @DisplayName("Should accurately update AgentProfile status via dirty checking mechanism")
     void shouldUpdateAgentStatus() {
         // given
+        Team team = Team.create("Service Desk", "L1 Support");
+        teamRepository.saveAndFlush(team);
+
         UUID agentId = UUID.randomUUID();
-        UUID teamId = UUID.randomUUID();
-        AgentProfile agentProfile = AgentProfile.create(agentId, teamId);
+        AgentProfile agentProfile = AgentProfile.create(agentId, team.getId());
         agentProfileRepository.saveAndFlush(agentProfile);
 
         AgentProfile persistedProfile = agentProfileRepository.findById(agentId).orElseThrow();
@@ -67,8 +76,12 @@ public class AgentProfileRepositoryTest extends BaseIntegrationTest {
     @DisplayName("Should retrieve only agents matching both team ID and specific status")
     void shouldFindByTeamIdAndStatus() {
         // given
-        UUID targetTeamId = UUID.randomUUID();
-        UUID otherTeamId = UUID.randomUUID();
+        Team targetTeam = Team.create("Hardware", "Net Ops");
+        Team otherTeam = Team.create("Network", "HW Ops");
+        teamRepository.saveAllAndFlush(List.of(targetTeam, otherTeam));
+
+        UUID targetTeamId = targetTeam.getId();
+        UUID otherTeamId = otherTeam.getId();
 
         AgentProfile availableTargetAgent = AgentProfile.create(UUID.randomUUID(), targetTeamId);
         availableTargetAgent.updateStatus(AgentStatus.AVAILABLE);

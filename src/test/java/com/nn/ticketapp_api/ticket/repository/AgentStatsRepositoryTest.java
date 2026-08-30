@@ -1,6 +1,10 @@
 package com.nn.ticketapp_api.ticket.repository;
 
 import com.nn.ticketapp_api.BaseIntegrationTest;
+import com.nn.ticketapp_api.agent.domain.AgentProfile;
+import com.nn.ticketapp_api.agent.repository.AgentProfileRepository;
+import com.nn.ticketapp_api.team.domain.Team;
+import com.nn.ticketapp_api.team.repository.TeamRepository;
 import com.nn.ticketapp_api.ticket.domain.Ticket;
 import com.nn.ticketapp_api.ticket.domain.TicketPriority;
 import com.nn.ticketapp_api.ticket.domain.TicketStatus;
@@ -26,6 +30,10 @@ public class AgentStatsRepositoryTest extends BaseIntegrationTest {
     private AgentStatsRepository agentStatsRepository;
     @Autowired
     private TicketRepository ticketRepository;
+    @Autowired
+    private TeamRepository teamRepository;
+    @Autowired
+    private AgentProfileRepository agentProfileRepository;
 
     private final Instant fixedNow = Instant.parse("2026-08-06T14:00:00Z");
     private final Clock fixedClock = Clock.fixed(fixedNow, ZoneId.of("UTC"));
@@ -33,20 +41,31 @@ public class AgentStatsRepositoryTest extends BaseIntegrationTest {
     @AfterEach
     void tearDown() {
         ticketRepository.deleteAllInBatch();
+        agentProfileRepository.deleteAllInBatch();
+        teamRepository.deleteAllInBatch();
     }
 
     @Test
     @DisplayName("Should accurately aggregate agent statistics")
     void shouldAggregateAgentStatisticsAccurately() {
         // given
-        UUID targetAgentId = UUID.randomUUID();
-        UUID otherAgentId = UUID.randomUUID();
+        Team team = Team.create("Stats Team", "For analytics");
+        teamRepository.saveAndFlush(team);
+        UUID teamId = team.getId();
+
+        AgentProfile targetAgent = AgentProfile.create(UUID.randomUUID(), teamId);
+        AgentProfile otherAgent = AgentProfile.create(UUID.randomUUID(), teamId);
+        agentProfileRepository.saveAllAndFlush(List.of(targetAgent, otherAgent));
+
+        UUID targetAgentId = targetAgent.getId();
+        UUID otherAgentId = otherAgent.getId();
         Instant now = Instant.now(fixedClock);
 
         Ticket firstTicket = buildTicket(
                 "INC0000010",
                 TicketStatus.IN_PROGRESS,
                 targetAgentId,
+                teamId,
                 now.plus(1, ChronoUnit.HOURS),
                 null
         );
@@ -56,6 +75,7 @@ public class AgentStatsRepositoryTest extends BaseIntegrationTest {
                 "INC0000011",
                 TicketStatus.IN_PROGRESS,
                 targetAgentId,
+                teamId,
                 now.minus(1, ChronoUnit.HOURS),
                 null
         );
@@ -65,6 +85,7 @@ public class AgentStatsRepositoryTest extends BaseIntegrationTest {
                 "INC0000012",
                 TicketStatus.RESOLVED,
                 targetAgentId,
+                teamId,
                 now.plus(2, ChronoUnit.HOURS),
                 now
         );
@@ -74,6 +95,7 @@ public class AgentStatsRepositoryTest extends BaseIntegrationTest {
                 "INC0000013",
                 TicketStatus.CLOSED,
                 targetAgentId,
+                teamId,
                 now.minus(2, ChronoUnit.HOURS),
                 now.minus(1, ChronoUnit.HOURS)
         );
@@ -83,6 +105,7 @@ public class AgentStatsRepositoryTest extends BaseIntegrationTest {
                 "INC0000014",
                 TicketStatus.NEW,
                 null,
+                teamId,
                 now.plus(1, ChronoUnit.HOURS),
                 null
         );
@@ -92,6 +115,7 @@ public class AgentStatsRepositoryTest extends BaseIntegrationTest {
                 "INC0000015",
                 TicketStatus.IN_PROGRESS,
                 otherAgentId,
+                teamId,
                 now.minus(1, ChronoUnit.HOURS),
                 null
         );
@@ -119,6 +143,7 @@ public class AgentStatsRepositoryTest extends BaseIntegrationTest {
             String ticketNumber,
             TicketStatus status,
             UUID agentId,
+            UUID teamId,
             Instant slaDeadline,
             Instant resolvedAt
     ) {
@@ -129,7 +154,7 @@ public class AgentStatsRepositoryTest extends BaseIntegrationTest {
                 .priority(TicketPriority.HIGH)
                 .status(status)
                 .creatorId(UUID.randomUUID())
-                .assignedAgentId(UUID.randomUUID())
+                .assignedTeamId(teamId)
                 .assignedAgentId(agentId)
                 .slaDeadline(slaDeadline)
                 .resolvedAt(resolvedAt)

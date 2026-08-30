@@ -11,3 +11,7 @@ databaseChangeLog:
       file: db/changelog/changes/005-agent-profile-schema.yaml
   - include:
       file: db/changelog/changes/006-sla-configuration-schema.yaml
+  - include:
+      file: db/changelog/changes/007-team-schema.yaml
+  - include:
+      file: db/changelog/changes/008-missing-foreign-keys.yaml
