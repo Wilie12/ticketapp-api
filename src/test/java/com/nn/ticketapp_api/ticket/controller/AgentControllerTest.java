@@ -1,5 +1,6 @@
 package com.nn.ticketapp_api.ticket.controller;
 
+import com.nn.ticketapp_api.agent.api.advice.AgentExceptionHandler;
 import com.nn.ticketapp_api.agent.api.request.AgentStatusUpdateRequest;
 import com.nn.ticketapp_api.agent.domain.AgentStatus;
 import com.nn.ticketapp_api.agent.service.AgentProfileService;
@@ -7,6 +8,7 @@ import com.nn.ticketapp_api.shared.api.advice.GlobalExceptionHandler;
 import com.nn.ticketapp_api.shared.api.response.PageResponse;
 import com.nn.ticketapp_api.shared.config.WebMvcConfig;
 import com.nn.ticketapp_api.shared.security.SecurityConfig;
+import com.nn.ticketapp_api.ticket.api.advice.TicketExceptionHandler;
 import com.nn.ticketapp_api.ticket.api.response.StatsResponse;
 import com.nn.ticketapp_api.ticket.api.response.TicketResponse;
 import com.nn.ticketapp_api.ticket.domain.TicketStatus;
@@ -25,6 +27,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.ObjectMapper;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -39,7 +42,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(AgentController.class)
-@Import({GlobalExceptionHandler.class, SecurityConfig.class, WebMvcConfig.class})
+@Import({SecurityConfig.class, WebMvcConfig.class})
 public class AgentControllerTest {
 
     @Autowired
@@ -54,6 +57,8 @@ public class AgentControllerTest {
     private AgentProfileService agentProfileService;
     @MockitoBean
     private JwtDecoder jwtDecoder;
+    @MockitoBean
+    private Clock clock;
 
     @Test
     @DisplayName("Should return paginated agent assigned tickets and 200 OK")
@@ -148,8 +153,8 @@ public class AgentControllerTest {
                 // then
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value(400))
-                .andExpect(jsonPath("$.error").value("Bad Request"))
-                .andExpect(jsonPath("$.message")
+                .andExpect(jsonPath("$.title").value("Bad Request"))
+                .andExpect(jsonPath("$.detail")
                         .value("Validation failed for field 'status': Status cannot be null"));
 
         then(agentProfileService).shouldHaveNoInteractions();

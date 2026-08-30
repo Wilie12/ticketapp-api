@@ -1,54 +1,29 @@
 package com.nn.ticketapp_api.shared.api.advice;
 
-import com.nn.ticketapp_api.agent.exception.AgentProfileAlreadyExistsException;
-import com.nn.ticketapp_api.communication.exception.AttachmentNotFoundException;
-import com.nn.ticketapp_api.communication.exception.AttachmentOwnershipException;
-import com.nn.ticketapp_api.communication.exception.InvalidAttachmentException;
-import com.nn.ticketapp_api.shared.api.response.ErrorResponse;
-import com.nn.ticketapp_api.ticket.exception.InvalidStatusTransitionException;
-import com.nn.ticketapp_api.ticket.exception.TicketClosedException;
-import com.nn.ticketapp_api.ticket.exception.TicketNotFoundException;
-import com.nn.ticketapp_api.ticket.exception.TicketOwnershipException;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.util.stream.Collectors;
 
 @Slf4j
 @RestControllerAdvice
+@RequiredArgsConstructor
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler({TicketNotFoundException.class, AttachmentNotFoundException.class})
-    @ResponseStatus(HttpStatus.NOT_FOUND)
-    public ErrorResponse handleNotFoundException(
-            TicketNotFoundException e,
-            HttpServletRequest request
-    ) {
-        log.warn("Resource not found: {}", e.getMessage());
-
-        return new ErrorResponse(
-                Instant.now(),
-                HttpStatus.NOT_FOUND.value(),
-                HttpStatus.NOT_FOUND.getReasonPhrase(),
-                e.getMessage(),
-                request.getRequestURI()
-        );
-    }
+    private final Clock clock;
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ErrorResponse handleValidationExceptions(
-            MethodArgumentNotValidException e,
-            HttpServletRequest request
-    ) {
-        String message = e.getBindingResult().getFieldErrors().stream()
+    public ProblemDetail handleValidationExceptions(MethodArgumentNotValidException e, HttpServletRequest request) {
+        String detail = e.getBindingResult().getFieldErrors().stream()
                 .map(error ->
                         String.format(
                                 "Validation failed for field '%s': %s",
@@ -58,73 +33,23 @@ public class GlobalExceptionHandler {
                 )
                 .collect(Collectors.joining("; "));
 
-        log.warn("Validation error on path: {}: {}", request.getRequestURI(), message);
+        log.warn("Validation error on path: {}: {}", request.getRequestURI(), detail);
 
-        return new ErrorResponse(
-                Instant.now(),
-                HttpStatus.BAD_REQUEST.value(),
-                HttpStatus.BAD_REQUEST.getReasonPhrase(),
-                message,
-                request.getRequestURI()
-        );
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, detail);
+        problemDetail.setTitle("Bad Request");
+        problemDetail.setProperty("timestamp", Instant.now(clock));
+
+        return problemDetail;
     }
 
-    @ExceptionHandler(InvalidAttachmentException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ErrorResponse handleInvalidAttachmentException(
-            InvalidAttachmentException e,
-            HttpServletRequest request
-    ) {
-        log.warn("Invalid attachment request on path {}: {}", request.getRequestURI(), e.getMessage());
+    @ExceptionHandler(AccessDeniedException.class)
+    public ProblemDetail handleAccessDeniedException(AccessDeniedException e, HttpServletRequest request) {
+        log.warn("Access denied on path: {}: {}", request.getRequestURI(), e.getMessage());
 
-        return new ErrorResponse(
-                Instant.now(),
-                HttpStatus.BAD_REQUEST.value(),
-                HttpStatus.BAD_REQUEST.getReasonPhrase(),
-                e.getMessage(),
-                request.getRequestURI()
-        );
-    }
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, e.getMessage());
+        problemDetail.setTitle("Forbidden");
+        problemDetail.setProperty("timestamp", Instant.now(clock));
 
-    @ExceptionHandler({
-            TicketOwnershipException.class,
-            AccessDeniedException.class,
-            AttachmentOwnershipException.class
-    })
-    @ResponseStatus(HttpStatus.FORBIDDEN)
-    public ErrorResponse handleForbiddenExceptions(
-            RuntimeException e,
-            HttpServletRequest request
-    ) {
-        log.warn("Access denied on path {}: {}", request.getRequestURI(), e.getMessage());
-
-        return new ErrorResponse(
-                Instant.now(),
-                HttpStatus.FORBIDDEN.value(),
-                HttpStatus.FORBIDDEN.getReasonPhrase(),
-                e.getMessage(),
-                request.getRequestURI()
-        );
-    }
-
-    @ExceptionHandler({
-            TicketClosedException.class,
-            InvalidStatusTransitionException.class,
-            AgentProfileAlreadyExistsException.class
-    })
-    @ResponseStatus(HttpStatus.CONFLICT)
-    public ErrorResponse handleConflictExceptions(
-            RuntimeException e,
-            HttpServletRequest request
-    ) {
-        log.warn("State conflict error on path: {}: {}", request.getRequestURI(), e.getMessage());
-
-        return new ErrorResponse(
-                Instant.now(),
-                HttpStatus.CONFLICT.value(),
-                HttpStatus.CONFLICT.getReasonPhrase(),
-                e.getMessage(),
-                request.getRequestURI()
-        );
+        return problemDetail;
     }
 }

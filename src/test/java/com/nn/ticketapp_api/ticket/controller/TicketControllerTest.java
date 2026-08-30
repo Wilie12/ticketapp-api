@@ -5,6 +5,7 @@ import com.nn.ticketapp_api.shared.api.response.PageResponse;
 import com.nn.ticketapp_api.shared.config.WebMvcConfig;
 import com.nn.ticketapp_api.shared.security.SecurityConfig;
 import com.nn.ticketapp_api.shared.security.domain.RequesterContext;
+import com.nn.ticketapp_api.ticket.api.advice.TicketExceptionHandler;
 import com.nn.ticketapp_api.ticket.api.request.ResolutionRequest;
 import com.nn.ticketapp_api.ticket.api.request.TicketCreateRequest;
 import com.nn.ticketapp_api.ticket.api.request.TicketPatchRequest;
@@ -31,6 +32,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.ObjectMapper;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -45,7 +47,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(TicketController.class)
-@Import({GlobalExceptionHandler.class, SecurityConfig.class, WebMvcConfig.class})
+@Import({SecurityConfig.class, WebMvcConfig.class})
 public class TicketControllerTest {
     @Autowired
     private MockMvc mockMvc;
@@ -57,6 +59,8 @@ public class TicketControllerTest {
     private TicketFacade ticketFacade;
     @MockitoBean
     private JwtDecoder jwtDecoder;
+    @MockitoBean
+    private Clock clock;
 
     @Test
     @DisplayName("Should successfully create ticket and return 201 Created")
@@ -119,8 +123,8 @@ public class TicketControllerTest {
                 // then
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value(400))
-                .andExpect(jsonPath("$.error").value("Bad Request"))
-                .andExpect(jsonPath("$.message")
+                .andExpect(jsonPath("$.title").value("Bad Request"))
+                .andExpect(jsonPath("$.detail")
                         .value("Validation failed for field 'title':" +
                                 " Title must be at least 5 characters long")
                 );
@@ -212,8 +216,8 @@ public class TicketControllerTest {
                 // then
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.status").value(404))
-                .andExpect(jsonPath("$.error").value("Not Found"))
-                .andExpect(jsonPath("$.message")
+                .andExpect(jsonPath("$.title").value("Not Found"))
+                .andExpect(jsonPath("$.detail")
                         .value(String.format("Ticket with ID %s not found", ticketId)));
 
         then(ticketFacade).should().getTicketDetails(eq(ticketId), any(RequesterContext.class));
@@ -236,8 +240,8 @@ public class TicketControllerTest {
                 // then
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.status").value(403))
-                .andExpect(jsonPath("$.error").value("Forbidden"))
-                .andExpect(jsonPath("$.message")
+                .andExpect(jsonPath("$.title").value("Forbidden"))
+                .andExpect(jsonPath("$.detail")
                         .value(String.format("User %s is not the owner of ticket %s", fakeRequesterId, ticketId)));
 
         then(ticketFacade).should().getTicketDetails(eq(ticketId), any(RequesterContext.class));
@@ -341,8 +345,8 @@ public class TicketControllerTest {
                 // then
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.status").value(409))
-                .andExpect(jsonPath("$.error").value("Conflict"))
-                .andExpect(jsonPath("$.message")
+                .andExpect(jsonPath("$.title").value("Conflict"))
+                .andExpect(jsonPath("$.detail")
                         .value("Ticket is already closed and cannot be resolved"));
     }
 
@@ -371,8 +375,8 @@ public class TicketControllerTest {
                 // then
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.status").value(409))
-                .andExpect(jsonPath("$.error").value("Conflict"))
-                .andExpect(jsonPath("$.message")
+                .andExpect(jsonPath("$.title").value("Conflict"))
+                .andExpect(jsonPath("$.detail")
                         .value("Ticket is closed and cannot be modified"));
 
         then(ticketService).should().updateTicketDetails(eq(ticketId), eq(request), eq(agentId));

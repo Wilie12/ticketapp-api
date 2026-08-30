@@ -19,6 +19,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.ObjectMapper;
 
+import java.time.Clock;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.eq;
@@ -30,7 +31,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(AdminSlaController.class)
-@Import({GlobalExceptionHandler.class, SecurityConfig.class, WebMvcConfig.class})
+@Import({SecurityConfig.class, WebMvcConfig.class})
 public class AdminSlaControllerTest {
 
     @Autowired
@@ -41,6 +42,8 @@ public class AdminSlaControllerTest {
     private SlaConfigurationService slaConfigurationService;
     @MockitoBean
     private JwtDecoder jwtDecoder;
+    @MockitoBean
+    private Clock clock;
 
     @Test
     @DisplayName("Should allow ADMIN to update SLA configuration and return 200 OK")
@@ -102,7 +105,7 @@ public class AdminSlaControllerTest {
                 // then
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value("400"))
-                .andExpect(jsonPath("$.message")
+                .andExpect(jsonPath("$.detail")
                         .value("Validation failed for field 'resolutionHours':" +
                                 " Resolution hours must be at least 1 hour"));
 

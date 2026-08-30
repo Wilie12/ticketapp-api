@@ -1,5 +1,6 @@
 package com.nn.ticketapp_api.communication.controller;
 
+import com.nn.ticketapp_api.communication.api.advice.CommunicationExceptionHandler;
 import com.nn.ticketapp_api.communication.api.response.AttachmentResponse;
 import com.nn.ticketapp_api.communication.domain.Attachment;
 import com.nn.ticketapp_api.communication.exception.AttachmentOwnershipException;
@@ -19,6 +20,7 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -34,7 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(AttachmentController.class)
-@Import({GlobalExceptionHandler.class, SecurityConfig.class, WebMvcConfig.class})
+@Import({SecurityConfig.class, WebMvcConfig.class})
 public class AttachmentControllerTest {
 
     @Autowired
@@ -43,6 +45,8 @@ public class AttachmentControllerTest {
     private AttachmentService attachmentService;
     @MockitoBean
     private JwtDecoder jwtDecoder;
+    @MockitoBean
+    private Clock clock;
 
     @Test
     @DisplayName("Should successfully upload attachment and return 201 Created")
@@ -105,8 +109,8 @@ public class AttachmentControllerTest {
                                 .authorities(new SimpleGrantedAuthority("ROLE_USER"))))
                 // then
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Bad Request"))
-                .andExpect(jsonPath("$.message")
+                .andExpect(jsonPath("$.title").value("Bad Request"))
+                .andExpect(jsonPath("$.detail")
                         .value("Filename contains invalid path sequence"));
     }
 
@@ -145,8 +149,8 @@ public class AttachmentControllerTest {
                                 .authorities(new SimpleGrantedAuthority("ROLE_USER"))))
                 // then
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.error").value("Forbidden"))
-                .andExpect(jsonPath("$.message").value(
+                .andExpect(jsonPath("$.title").value("Forbidden"))
+                .andExpect(jsonPath("$.detail").value(
                         String.format(
                                 "User %s does not have permission to modify attachment %s",
                                 maliciousUserId,
