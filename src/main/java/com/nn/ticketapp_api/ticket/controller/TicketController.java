@@ -27,7 +27,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/tickets")
 @RequiredArgsConstructor
-@PreAuthorize("hasAnyRole('USER', 'AGENT', 'ADMIN')")
+@PreAuthorize("isAuthenticated()")
 public class TicketController {
 
     private final TicketService ticketService;
@@ -65,11 +65,12 @@ public class TicketController {
 
     @PostMapping("/{id}/assign")
     @ResponseStatus(HttpStatus.OK)
-    @PreAuthorize("hasAnyRole('AGENT', 'ADMIN')")
     public TicketResponse assignTicket(
             @PathVariable(name = "id") UUID ticketId,
             @CurrentRequester RequesterContext requesterContext
     ) {
+        requesterContext.requireInternal();
+
         log.debug("Received request to assign ticket {} to agent: {}", ticketId, requesterContext.userId());
 
         return ticketService.assignTicket(ticketId, requesterContext.userId());
@@ -77,12 +78,13 @@ public class TicketController {
 
     @PostMapping("/{id}/resolve")
     @ResponseStatus(HttpStatus.OK)
-    @PreAuthorize("hasAnyRole('AGENT', 'ADMIN')")
     public TicketResponse resolveTicket(
             @PathVariable(name = "id") UUID ticketId,
             @RequestBody @Valid ResolutionRequest resolutionRequest,
             @CurrentRequester RequesterContext requesterContext
     ) {
+        requesterContext.requireInternal();
+
         log.debug("Received request to resolve ticket {} by agent: {}", ticketId, requesterContext.userId());
 
         return ticketService.resolveTicket(ticketId, requesterContext.userId(), resolutionRequest.resolutionNote());
@@ -112,12 +114,13 @@ public class TicketController {
 
     @PatchMapping("/{id}")
     @ResponseStatus(HttpStatus.OK)
-    @PreAuthorize("hasAnyRole('AGENT', 'ADMIN')")
     public TicketResponse updateTicketDetails(
             @PathVariable(name = "id") UUID ticketId,
             @RequestBody @Valid TicketPatchRequest ticketPatchRequest,
             @CurrentRequester RequesterContext requesterContext
     ) {
+        requesterContext.requireInternal();
+
         log.debug("Received request to update details for ticket {} by agent: {}", ticketId, requesterContext.userId());
 
         return ticketService.updateTicketDetails(ticketId, ticketPatchRequest, requesterContext.userId());
@@ -125,12 +128,13 @@ public class TicketController {
 
     @GetMapping("/queue")
     @ResponseStatus(HttpStatus.OK)
-    @PreAuthorize("hasAnyRole('AGENT', 'ADMIN')")
     public PageResponse<TicketResponse> getUnassignedQueue(
             @RequestParam(name = "teamId") UUID teamId,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.ASC) Pageable pageable,
             @CurrentRequester RequesterContext requesterContext
     ) {
+        requesterContext.requireInternal();
+
         log.debug(
                 "Received request to get unassigned ticket queue for team {} by agent: {}",
                 teamId,

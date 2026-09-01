@@ -2,7 +2,6 @@ package com.nn.ticketapp_api.team.controller;
 
 import com.nn.ticketapp_api.shared.config.WebMvcConfig;
 import com.nn.ticketapp_api.shared.security.SecurityConfig;
-import com.nn.ticketapp_api.team.api.advice.TeamExceptionHandler;
 import com.nn.ticketapp_api.team.api.request.TeamCreateRequest;
 import com.nn.ticketapp_api.team.api.request.TeamUpdateRequest;
 import com.nn.ticketapp_api.team.api.response.TeamResponse;
@@ -15,28 +14,26 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import tools.jackson.databind.ObjectMapper;
 
+import java.time.Clock;
 import java.util.List;
 import java.util.UUID;
 
+import static com.nn.ticketapp_api.shared.security.SecurityTestUtils.validJwt;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
-import static org.mockito.Mockito.when;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(TeamController.class)
-@Import({TeamExceptionHandler.class, SecurityConfig.class, WebMvcConfig.class})
+@Import({SecurityConfig.class, WebMvcConfig.class})
 public class TeamControllerTest {
 
     @Autowired
@@ -47,6 +44,8 @@ public class TeamControllerTest {
     private TeamService teamService;
     @MockitoBean
     private JwtDecoder jwtDecoder;
+    @MockitoBean
+    private Clock clock;
 
     @Test
     @DisplayName("Should create team and return 201 Created")
@@ -65,7 +64,7 @@ public class TeamControllerTest {
 
         // when
         mockMvc.perform(post("/api/v1/teams")
-                        .with(validJwt("ROLE_ADMIN"))
+                        .with(validJwt(UUID.randomUUID(), "ROLE_ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 // then
@@ -84,7 +83,7 @@ public class TeamControllerTest {
 
         // when
         mockMvc.perform(post("/api/v1/teams")
-                        .with(validJwt("ROLE_USER"))
+                        .with(validJwt(UUID.randomUUID(),"ROLE_USER"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 // then
@@ -102,7 +101,7 @@ public class TeamControllerTest {
 
         // when
         mockMvc.perform(post("/api/v1/teams")
-                        .with(validJwt("ROLE_ADMIN"))
+                        .with(validJwt(UUID.randomUUID(),"ROLE_ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(invalidRequest)))
                 .andExpect(status().isBadRequest());
@@ -127,7 +126,7 @@ public class TeamControllerTest {
 
         // when
         mockMvc.perform(get("/api/v1/teams/{id}", teamId)
-                        .with(validJwt("ROLE_AGENT")))
+                        .with(validJwt(UUID.randomUUID(),"ROLE_AGENT")))
                 // then
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("Hardware"))
@@ -145,7 +144,7 @@ public class TeamControllerTest {
 
         // when
         mockMvc.perform(get("/api/v1/teams/{id}", teamId)
-                        .with(validJwt("ROLE_USER")))
+                        .with(validJwt(UUID.randomUUID(),"ROLE_USER")))
                 // then
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.title").value("Team Not Found"))
@@ -178,7 +177,7 @@ public class TeamControllerTest {
 
         // when
         mockMvc.perform(get("/api/v1/teams")
-                        .with(validJwt("ROLE_USER")))
+                        .with(validJwt(UUID.randomUUID(),"ROLE_USER")))
                 // then
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(2))
@@ -206,7 +205,7 @@ public class TeamControllerTest {
 
         // when
         mockMvc.perform(patch("/api/v1/teams/{id}", teamId)
-                        .with(validJwt("ROLE_ADMIN"))
+                        .with(validJwt(UUID.randomUUID(),"ROLE_ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 // then
@@ -228,18 +227,12 @@ public class TeamControllerTest {
 
         // when
         mockMvc.perform(patch("/api/v1/teams/{id}", teamId)
-                .with(validJwt("ROLE_ADMIN"))
+                .with(validJwt(UUID.randomUUID(),"ROLE_ADMIN"))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.title").value("Team Already Exists"));
 
         then(teamService).should().updateTeam(teamId, request);
-    }
-
-    private RequestPostProcessor validJwt(String role) {
-        return jwt()
-                .jwt(builder -> builder.subject(UUID.randomUUID().toString()))
-                .authorities(new SimpleGrantedAuthority(role));
     }
 }
