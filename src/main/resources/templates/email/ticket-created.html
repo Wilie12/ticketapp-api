@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Ticket Created</title>
+</head>
+<body style="font-family: Arial, sans-serif; color: #333;">
+    <h2 th:text="'Ticket ' + ${ticketNumber} + ' has been created'">Ticket Created</h2>
+    <p>Hello,</p>
+    <p>A new support ticket has been registered in the system.</p>
+    <ul>
+        <li><strong>Ticket Number:</strong> <span th:text="${ticketNumber}">INC0000000</span></li>
+        <li><strong>Title:</strong> <span th:text="${title}">INC0000000</span></li>
+        <li><strong>Priority:</strong> <span th:text="${priority}">INC0000000</span></li>
+    </ul>
+    <p>Our team will process it shortly.</p>
+</body>
+</html>
