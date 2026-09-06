@@ -50,6 +50,12 @@ spring:
 app:
   minio:
     url: http://localhost:9000
-    access-key: ${MINIO_ACCESS_KEY:-default_ticketapp_accesskey}
-    secret-key: ${MINIO_SECRET_KEY:-default_ticketapp_secretkey}
+    access-key: ${MINIO_ACCESS_KEY:default_ticketapp_accesskey}
+    secret-key: ${MINIO_SECRET_KEY:default_ticketapp_secretkey}
     bucket-name: ticket-attachments
+  identity:
+    keycloak:
+      server-url: ${KC_SERVER_URL:http://localhost:8081}
+      realm: ${KC_REALM:ticketapp}
+      client-id: ${KC_CLIENT_ID:ticketapp-client}
+      client-secret: ${KC_CLIENT_SECRET:default_secret}
