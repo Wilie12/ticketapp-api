@@ -2,6 +2,7 @@ package com.nn.ticketapp_api.notification.listener;
 
 import com.nn.ticketapp_api.notification.service.EmailSender;
 import com.nn.ticketapp_api.notification.template.EmailTemplateProcessor;
+import com.nn.ticketapp_api.shared.identity.service.IdentityGateway;
 import com.nn.ticketapp_api.ticket.domain.event.TicketCreatedEvent;
 import com.nn.ticketapp_api.ticket.domain.event.TicketResolvedEvent;
 import com.nn.ticketapp_api.ticket.repository.TicketRepository;
@@ -22,6 +23,7 @@ public class NotificationEventListener {
     private final TicketRepository ticketRepository;
     private final EmailTemplateProcessor emailTemplateProcessor;
     private final EmailSender emailSender;
+    private final IdentityGateway identityGateway;
 
     @Async("taskExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -29,17 +31,18 @@ public class NotificationEventListener {
         log.debug("Processing asynchronous email notification for created ticket: {}", event.ticketId());
 
         ticketRepository.findById(event.ticketId()).ifPresent(ticket -> {
-            String recipient = String.format("user-%s@ticketapp.local", ticket.getCreatorId());
-            String subject = String.format("Ticket Created: %s", ticket.getTicketNumber());
+            identityGateway.getEmailById(ticket.getCreatorId()).ifPresent( email -> {
+                String subject = String.format("Ticket Created: %s", ticket.getTicketNumber());
 
-            Map<String, Object> variables = Map.of(
-                    "ticketNumber", ticket.getTicketNumber(),
-                    "title", ticket.getTitle(),
-                    "priority", ticket.getPriority().name()
-            );
+                Map<String, Object> variables = Map.of(
+                        "ticketNumber", ticket.getTicketNumber(),
+                        "title", ticket.getTitle(),
+                        "priority", ticket.getPriority().name()
+                );
 
-            String htmlBody = emailTemplateProcessor.processTemplate("email/ticket-created", variables);
-            emailSender.sendHtmlEmail(recipient, subject, htmlBody);
+                String htmlBody = emailTemplateProcessor.processTemplate("email/ticket-created", variables);
+                emailSender.sendHtmlEmail(email, subject, htmlBody);
+            });
         });
     }
 
@@ -49,16 +52,17 @@ public class NotificationEventListener {
         log.debug("Processing asynchronous email notification for resolved ticket: {}", event.ticketId());
 
         ticketRepository.findById(event.ticketId()).ifPresent(ticket -> {
-            String recipient = String.format("user-%s@ticketapp.local", ticket.getCreatorId());
-            String subject = String.format("Ticket Resolved: %s", ticket.getTicketNumber());
+            identityGateway.getEmailById(ticket.getCreatorId()).ifPresent( email -> {
+                String subject = String.format("Ticket Resolved: %s", ticket.getTicketNumber());
 
-            Map<String, Object> variables = Map.of(
-                    "ticketNumber", ticket.getTicketNumber(),
-                    "resolutionNote", event.resolutionNote()
-            );
+                Map<String, Object> variables = Map.of(
+                        "ticketNumber", ticket.getTicketNumber(),
+                        "resolutionNote", event.resolutionNote()
+                );
 
-            String htmlBody = emailTemplateProcessor.processTemplate("email/ticket-resolved", variables);
-            emailSender.sendHtmlEmail(recipient, subject, htmlBody);
+                String htmlBody = emailTemplateProcessor.processTemplate("email/ticket-resolved", variables);
+                emailSender.sendHtmlEmail(email, subject, htmlBody);
+            });
         });
     }
 }
