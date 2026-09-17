@@ -5,6 +5,12 @@ spring:
   application:
     name: ticketapp-api
 
+  cache:
+    type: caffeine
+    cache-names: identityCache
+    caffeine:
+      spec: maximumSize=5000,expireAfterAccess=1h
+
   config:
     import: "optional:file:.env[.properties]"
 

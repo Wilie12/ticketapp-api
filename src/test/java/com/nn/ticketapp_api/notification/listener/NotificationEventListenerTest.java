@@ -4,6 +4,7 @@ import com.nn.ticketapp_api.BaseIntegrationTest;
 import com.nn.ticketapp_api.agent.domain.AgentProfile;
 import com.nn.ticketapp_api.agent.repository.AgentProfileRepository;
 import com.nn.ticketapp_api.notification.service.EmailSender;
+import com.nn.ticketapp_api.shared.identity.service.IdentityGateway;
 import com.nn.ticketapp_api.team.domain.Team;
 import com.nn.ticketapp_api.team.repository.TeamRepository;
 import com.nn.ticketapp_api.ticket.domain.Ticket;
@@ -20,10 +21,12 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.timeout;
 
@@ -42,6 +45,8 @@ public class NotificationEventListenerTest extends BaseIntegrationTest {
 
     @MockitoBean
     private EmailSender emailSender;
+    @MockitoBean
+    private IdentityGateway identityGateway;
 
     @AfterEach
     void tearDown() {
@@ -71,11 +76,13 @@ public class NotificationEventListenerTest extends BaseIntegrationTest {
 
         TicketCreatedEvent event = new TicketCreatedEvent(ticket.getId(), ticket.getAssignedTeamId());
 
+        String expectedRecipient = String.format("user-%s@ticketapp.local", creatorId);
+        given(identityGateway.getEmailById(creatorId)).willReturn(Optional.of(expectedRecipient));
+
         // when
         transactionTemplate.executeWithoutResult(status -> eventPublisher.publishEvent(event));
 
         // then
-        String expectedRecipient = String.format("user-%s@ticketapp.local", creatorId);
         String expectedSubject = "Ticket Created: INC0000123";
 
         then(emailSender).should(timeout(2000)).sendHtmlEmail(
@@ -116,11 +123,13 @@ public class NotificationEventListenerTest extends BaseIntegrationTest {
                 "Restarted the core router."
         );
 
+        String expectedRecipient = String.format("user-%s@ticketapp.local", creatorId);
+        given(identityGateway.getEmailById(creatorId)).willReturn(Optional.of(expectedRecipient));
+
         // when
         transactionTemplate.executeWithoutResult(status -> eventPublisher.publishEvent(event));
 
         // then
-        String expectedRecipient = String.format("user-%s@ticketapp.local", creatorId);
         String expectedSubject = "Ticket Resolved: INC0000124";
 
         then(emailSender).should(timeout(2000)).sendHtmlEmail(
