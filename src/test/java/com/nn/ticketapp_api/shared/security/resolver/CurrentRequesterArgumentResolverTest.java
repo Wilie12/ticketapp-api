@@ -44,19 +44,11 @@ public class CurrentRequesterArgumentResolverTest {
     }
 
     @Test
-    @DisplayName("Should extract UUID and assign INTERNAL access level for agent role")
-    void shouldReturnInternalContextForAgent() {
+    @DisplayName("Should extract UUID and assign ADMIN access level for admin role")
+    void shouldReturnAdminContextForAdmin() {
         // given
-        UUID expectedUUID = UUID.randomUUID();
-        Jwt jwt = mock(Jwt.class);
-        given(jwt.getSubject()).willReturn(expectedUUID.toString());
-
-        Authentication authentication = mock(Authentication.class);
-        given(authentication.getPrincipal()).willReturn(jwt);
-
-        Collection<GrantedAuthority> authorities = List.of(new SimpleGrantedAuthority("ROLE_AGENT"));
-        given((Collection<GrantedAuthority>) authentication.getAuthorities()).willReturn(authorities);
-
+        UUID adminId = UUID.randomUUID();
+        Authentication authentication = mockAuthentication(adminId.toString(), "ROLE_ADMIN");
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
         // when
@@ -64,25 +56,38 @@ public class CurrentRequesterArgumentResolverTest {
 
         // then
         assertThat(result).isInstanceOf(RequesterContext.class);
-        RequesterContext requesterContext = (RequesterContext) result;
-        assertThat(requesterContext.userId()).isEqualTo(expectedUUID);
-        assertThat(requesterContext.accessLevel()).isEqualTo(AccessLevel.INTERNAL);
-        assertThat(requesterContext.isInternal()).isTrue();
+        RequesterContext context = (RequesterContext) result;
+        assertThat(context.userId()).isEqualTo(adminId);
+        assertThat(context.accessLevel()).isEqualTo(AccessLevel.ADMIN);
+        assertThat(context.isInternal()).isTrue();
+        assertThat(context.isAdmin()).isTrue();
+    }
+
+    @Test
+    @DisplayName("Should extract UUID and assign AGENT access level for agent role")
+    void shouldReturnInternalContextForAgent() {
+        // given
+        UUID agentId = UUID.randomUUID();
+        Authentication authentication = mockAuthentication(agentId.toString(), "ROLE_AGENT");
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        // when
+        Object result = resolver.resolveArgument(methodParameter, null, webRequest, null);
+
+        // then
+        assertThat(result).isInstanceOf(RequesterContext.class);
+        RequesterContext context = (RequesterContext) result;
+        assertThat(context.userId()).isEqualTo(agentId);
+        assertThat(context.accessLevel()).isEqualTo(AccessLevel.AGENT);
+        assertThat(context.isInternal()).isTrue();
+        assertThat(context.isAdmin()).isFalse();
     }
 
     @Test
     @DisplayName("Should extract UUID and assign STANDARD access level for regular user role")
     void shouldReturnStandardContextForUser() {
-        UUID expectedUUID = UUID.randomUUID();
-        Jwt jwt = mock(Jwt.class);
-        given(jwt.getSubject()).willReturn(expectedUUID.toString());
-
-        Authentication authentication = mock(Authentication.class);
-        given(authentication.getPrincipal()).willReturn(jwt);
-
-        Collection<GrantedAuthority> authorities = List.of(new SimpleGrantedAuthority("ROLE_USER"));
-        given((Collection<GrantedAuthority>) authentication.getAuthorities()).willReturn(authorities);
-
+        UUID userId = UUID.randomUUID();
+        Authentication authentication = mockAuthentication(userId.toString(), "ROLE_USER");
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
         // when
@@ -90,10 +95,11 @@ public class CurrentRequesterArgumentResolverTest {
 
         // then
         assertThat(result).isInstanceOf(RequesterContext.class);
-        RequesterContext requesterContext = (RequesterContext) result;
-        assertThat(requesterContext.userId()).isEqualTo(expectedUUID);
-        assertThat(requesterContext.accessLevel()).isEqualTo(AccessLevel.STANDARD);
-        assertThat(requesterContext.isInternal()).isFalse();
+        RequesterContext context = (RequesterContext) result;
+        assertThat(context.userId()).isEqualTo(userId);
+        assertThat(context.accessLevel()).isEqualTo(AccessLevel.STANDARD);
+        assertThat(context.isInternal()).isFalse();
+        assertThat(context.isAdmin()).isFalse();
     }
 
     @Test
@@ -114,12 +120,7 @@ public class CurrentRequesterArgumentResolverTest {
     @DisplayName("Should throw IllegalStateException when valid JWT is provided but 'sub' claim is empty")
     void shouldThrowExceptionWhenSubjectIsMissing() {
         // given
-        Jwt jwt = mock(Jwt.class);
-        given(jwt.getSubject()).willReturn("");
-
-        Authentication authentication = mock(Authentication.class);
-        given(authentication.getPrincipal()).willReturn(jwt);
-
+        Authentication authentication = mockAuthentication("", "ROLE_AGENT");
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
         // when
@@ -131,5 +132,18 @@ public class CurrentRequesterArgumentResolverTest {
         assertThat(thrown)
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("JWT Token 'sub' claim is missing");
+    }
+
+    private Authentication mockAuthentication(String subject, String role) {
+        Jwt jwt = mock(Jwt.class);
+        given(jwt.getSubject()).willReturn(subject);
+
+        Authentication authentication = mock(Authentication.class);
+        given(authentication.getPrincipal()).willReturn(jwt);
+
+        Collection<GrantedAuthority> authorities = List.of(new SimpleGrantedAuthority(role));
+        given((Collection<GrantedAuthority>) authentication.getAuthorities()).willReturn(authorities);
+
+        return authentication;
     }
 }

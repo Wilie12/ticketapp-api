@@ -55,7 +55,7 @@ public class TicketFacadeTest {
         // given
         UUID ticketId = UUID.randomUUID();
         UUID requesterId = UUID.randomUUID();
-        RequesterContext requesterContext = new RequesterContext(requesterId, AccessLevel.INTERNAL);
+        RequesterContext requesterContext = new RequesterContext(requesterId, AccessLevel.AGENT);
 
         Ticket mockTicket = Ticket.createNew(
                 "INC0000001",

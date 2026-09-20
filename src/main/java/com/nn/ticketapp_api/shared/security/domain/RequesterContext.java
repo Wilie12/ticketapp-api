@@ -9,7 +9,11 @@ public record RequesterContext(
         AccessLevel accessLevel
 ) {
     public boolean isInternal() {
-        return accessLevel == AccessLevel.INTERNAL;
+        return accessLevel == AccessLevel.AGENT || accessLevel == AccessLevel.ADMIN;
+    }
+
+    public boolean isAdmin() {
+        return accessLevel == AccessLevel.ADMIN;
     }
 
     public void requireInternal() {
