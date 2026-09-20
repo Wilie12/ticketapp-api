@@ -1,23 +1,16 @@
 package com.nn.ticketapp_api.admin.controller;
 
+import com.nn.ticketapp_api.BaseControllerTest;
 import com.nn.ticketapp_api.admin.api.request.SlaConfigurationUpdateRequest;
 import com.nn.ticketapp_api.admin.api.response.SlaConfigurationResponse;
 import com.nn.ticketapp_api.admin.service.SlaConfigurationService;
-import com.nn.ticketapp_api.shared.config.WebMvcConfig;
-import com.nn.ticketapp_api.shared.security.SecurityConfig;
 import com.nn.ticketapp_api.ticket.domain.TicketPriority;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
-import tools.jackson.databind.ObjectMapper;
 
-import java.time.Clock;
 import java.util.UUID;
 
 import static com.nn.ticketapp_api.shared.security.SecurityTestUtils.validJwt;
@@ -29,19 +22,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(AdminSlaController.class)
-@Import({SecurityConfig.class, WebMvcConfig.class})
-public class AdminSlaControllerTest {
+public class AdminSlaControllerTest extends BaseControllerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
-    @Autowired
-    private ObjectMapper objectMapper;
     @MockitoBean
     private SlaConfigurationService slaConfigurationService;
-    @MockitoBean
-    private JwtDecoder jwtDecoder;
-    @MockitoBean
-    private Clock clock;
 
     @Test
     @DisplayName("Should allow ADMIN to update SLA configuration and return 200 OK")

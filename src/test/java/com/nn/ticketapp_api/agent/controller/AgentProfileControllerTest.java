@@ -1,24 +1,17 @@
 package com.nn.ticketapp_api.agent.controller;
 
+import com.nn.ticketapp_api.BaseControllerTest;
 import com.nn.ticketapp_api.agent.api.request.AgentProfileCreateRequest;
 import com.nn.ticketapp_api.agent.api.response.AgentProfileResponse;
 import com.nn.ticketapp_api.agent.domain.AgentStatus;
 import com.nn.ticketapp_api.agent.exception.AgentProfileAlreadyExistsException;
 import com.nn.ticketapp_api.agent.service.AgentProfileService;
-import com.nn.ticketapp_api.shared.config.WebMvcConfig;
-import com.nn.ticketapp_api.shared.security.SecurityConfig;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
-import tools.jackson.databind.ObjectMapper;
 
-import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -30,21 +23,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(AgentProfileController.class)
-@Import({SecurityConfig.class, WebMvcConfig.class})
-public class AgentProfileControllerTest {
+public class AgentProfileControllerTest extends BaseControllerTest {
 
     private static final Instant FIXED_NOW = Instant.parse("2026-08-01T12:00:00Z");
 
-    @Autowired
-    MockMvc mockMvc;
-    @Autowired
-    private ObjectMapper objectMapper;
     @MockitoBean
     private AgentProfileService agentProfileService;
-    @MockitoBean
-    private JwtDecoder jwtDecoder;
-    @MockitoBean
-    private Clock clock;
 
     @Test
     @DisplayName("Should successfully provision agent profile and return 201 Created for ADMIN")

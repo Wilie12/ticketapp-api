@@ -1,22 +1,16 @@
 package com.nn.ticketapp_api.communication.controller;
 
+import com.nn.ticketapp_api.BaseControllerTest;
 import com.nn.ticketapp_api.communication.api.response.AttachmentResponse;
 import com.nn.ticketapp_api.communication.exception.AttachmentOwnershipException;
 import com.nn.ticketapp_api.communication.exception.InvalidAttachmentException;
 import com.nn.ticketapp_api.communication.service.AttachmentService;
-import com.nn.ticketapp_api.shared.config.WebMvcConfig;
-import com.nn.ticketapp_api.shared.security.SecurityConfig;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.mock.web.MockMultipartFile;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
 
-import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -32,17 +26,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(AttachmentController.class)
-@Import({SecurityConfig.class, WebMvcConfig.class})
-public class AttachmentControllerTest {
+public class AttachmentControllerTest extends BaseControllerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
     @MockitoBean
     private AttachmentService attachmentService;
-    @MockitoBean
-    private JwtDecoder jwtDecoder;
-    @MockitoBean
-    private Clock clock;
 
     @Test
     @DisplayName("Should successfully upload attachment and return 201 Created")
