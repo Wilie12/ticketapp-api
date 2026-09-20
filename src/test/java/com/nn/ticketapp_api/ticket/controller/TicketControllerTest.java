@@ -1,8 +1,7 @@
 package com.nn.ticketapp_api.ticket.controller;
 
+import com.nn.ticketapp_api.BaseControllerTest;
 import com.nn.ticketapp_api.shared.api.response.PageResponse;
-import com.nn.ticketapp_api.shared.config.WebMvcConfig;
-import com.nn.ticketapp_api.shared.security.SecurityConfig;
 import com.nn.ticketapp_api.shared.security.domain.RequesterContext;
 import com.nn.ticketapp_api.ticket.api.request.ResolutionRequest;
 import com.nn.ticketapp_api.ticket.api.request.TicketCreateRequest;
@@ -19,17 +18,11 @@ import com.nn.ticketapp_api.ticket.facade.TicketFacade;
 import com.nn.ticketapp_api.ticket.service.TicketService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
-import tools.jackson.databind.ObjectMapper;
 
-import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -44,20 +37,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(TicketController.class)
-@Import({SecurityConfig.class, WebMvcConfig.class})
-public class TicketControllerTest {
-    @Autowired
-    private MockMvc mockMvc;
-    @Autowired
-    private ObjectMapper objectMapper;
+public class TicketControllerTest extends BaseControllerTest {
+
     @MockitoBean
     private TicketService ticketService;
     @MockitoBean
     private TicketFacade ticketFacade;
-    @MockitoBean
-    private JwtDecoder jwtDecoder;
-    @MockitoBean
-    private Clock clock;
 
     @Test
     @DisplayName("Should successfully create ticket and return 201 Created")

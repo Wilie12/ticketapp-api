@@ -1,7 +1,6 @@
 package com.nn.ticketapp_api.team.controller;
 
-import com.nn.ticketapp_api.shared.config.WebMvcConfig;
-import com.nn.ticketapp_api.shared.security.SecurityConfig;
+import com.nn.ticketapp_api.BaseControllerTest;
 import com.nn.ticketapp_api.team.api.request.TeamCreateRequest;
 import com.nn.ticketapp_api.team.api.request.TeamUpdateRequest;
 import com.nn.ticketapp_api.team.api.response.TeamResponse;
@@ -10,16 +9,10 @@ import com.nn.ticketapp_api.team.exception.TeamNotFoundException;
 import com.nn.ticketapp_api.team.service.TeamService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
-import tools.jackson.databind.ObjectMapper;
 
-import java.time.Clock;
 import java.util.List;
 import java.util.UUID;
 
@@ -33,19 +26,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(TeamController.class)
-@Import({SecurityConfig.class, WebMvcConfig.class})
-public class TeamControllerTest {
+public class TeamControllerTest extends BaseControllerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
-    @Autowired
-    private ObjectMapper objectMapper;
     @MockitoBean
     private TeamService teamService;
-    @MockitoBean
-    private JwtDecoder jwtDecoder;
-    @MockitoBean
-    private Clock clock;
 
     @Test
     @DisplayName("Should create team and return 201 Created")

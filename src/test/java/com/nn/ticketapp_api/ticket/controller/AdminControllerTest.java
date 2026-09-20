@@ -1,20 +1,13 @@
 package com.nn.ticketapp_api.ticket.controller;
 
-import com.nn.ticketapp_api.shared.api.advice.GlobalExceptionHandler;
-import com.nn.ticketapp_api.shared.config.WebMvcConfig;
-import com.nn.ticketapp_api.shared.security.SecurityConfig;
+import com.nn.ticketapp_api.BaseControllerTest;
 import com.nn.ticketapp_api.ticket.api.response.StatsResponse;
 import com.nn.ticketapp_api.ticket.service.AgentStatsService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-import org.springframework.context.annotation.Import;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
 
-import java.time.Clock;
 import java.util.List;
 import java.util.UUID;
 
@@ -26,17 +19,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(AdminController.class)
-@Import({GlobalExceptionHandler.class, SecurityConfig.class, WebMvcConfig.class})
-public class AdminControllerTest {
+public class AdminControllerTest extends BaseControllerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
     @MockitoBean
     private AgentStatsService agentStatsService;
-    @MockitoBean
-    private JwtDecoder jwtDecoder;
-    @MockitoBean
-    private Clock clock;
 
     @Test
     @DisplayName("Should return global agent statistics array and 200 OK for ADMIN")

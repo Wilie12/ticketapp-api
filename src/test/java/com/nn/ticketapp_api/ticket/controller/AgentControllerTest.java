@@ -1,11 +1,10 @@
 package com.nn.ticketapp_api.ticket.controller;
 
+import com.nn.ticketapp_api.BaseControllerTest;
 import com.nn.ticketapp_api.agent.api.request.AgentStatusUpdateRequest;
 import com.nn.ticketapp_api.agent.domain.AgentStatus;
 import com.nn.ticketapp_api.agent.service.AgentProfileService;
 import com.nn.ticketapp_api.shared.api.response.PageResponse;
-import com.nn.ticketapp_api.shared.config.WebMvcConfig;
-import com.nn.ticketapp_api.shared.security.SecurityConfig;
 import com.nn.ticketapp_api.ticket.api.response.StatsResponse;
 import com.nn.ticketapp_api.ticket.api.response.TicketResponse;
 import com.nn.ticketapp_api.ticket.domain.TicketStatus;
@@ -13,17 +12,11 @@ import com.nn.ticketapp_api.ticket.service.AgentStatsService;
 import com.nn.ticketapp_api.ticket.service.TicketService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
-import tools.jackson.databind.ObjectMapper;
 
-import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -38,23 +31,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(AgentController.class)
-@Import({SecurityConfig.class, WebMvcConfig.class})
-public class AgentControllerTest {
+public class AgentControllerTest extends BaseControllerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
-    @Autowired
-    private ObjectMapper objectMapper;
     @MockitoBean
     private TicketService ticketService;
     @MockitoBean
     private AgentStatsService agentStatsService;
     @MockitoBean
     private AgentProfileService agentProfileService;
-    @MockitoBean
-    private JwtDecoder jwtDecoder;
-    @MockitoBean
-    private Clock clock;
 
     @Test
     @DisplayName("Should return paginated agent assigned tickets and 200 OK")
