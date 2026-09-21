@@ -88,7 +88,7 @@ public class TicketFacadeTest {
                 attachments
         );
 
-        given(ticketService.getValidatedTicket(ticketId, requesterId)).willReturn(mockTicket);
+        given(ticketService.getValidatedTicket(ticketId, requesterContext)).willReturn(mockTicket);
         given(communicationService.getCommunicationsByType(ticketId, CommunicationType.PUBLIC_COMMENT))
                 .willReturn(comments);
         given(communicationService.getCommunicationsByType(ticketId, CommunicationType.WORK_NOTE))
@@ -106,7 +106,7 @@ public class TicketFacadeTest {
         assertThat(result).isNotNull();
         assertThat(result.ticketNumber()).isEqualTo("INC0000001");
 
-        then(ticketService).should().getValidatedTicket(ticketId, requesterId);
+        then(ticketService).should().getValidatedTicket(ticketId, requesterContext);
         then(communicationService).should().getCommunicationsByType(ticketId, CommunicationType.PUBLIC_COMMENT);
         then(communicationService).should().getCommunicationsByType(ticketId, CommunicationType.WORK_NOTE);
         then(communicationService).should().getCommunicationsByType(ticketId, CommunicationType.SYSTEM_EVENT);
@@ -150,7 +150,7 @@ public class TicketFacadeTest {
                 attachments
         );
 
-        given(ticketService.getValidatedTicket(ticketId, requesterId)).willReturn(mockTicket);
+        given(ticketService.getValidatedTicket(ticketId, requesterContext)).willReturn(mockTicket);
         given(communicationService.getCommunicationsByType(ticketId, CommunicationType.PUBLIC_COMMENT))
                 .willReturn(comments);
         given(attachmentService.getTicketAttachments(ticketId)).willReturn(attachments);
@@ -168,7 +168,7 @@ public class TicketFacadeTest {
         // then
         assertThat(result).isNotNull();
 
-        then(ticketService).should().getValidatedTicket(ticketId, requesterId);
+        then(ticketService).should().getValidatedTicket(ticketId, requesterContext);
         then(communicationService).should().getCommunicationsByType(ticketId, CommunicationType.PUBLIC_COMMENT);
         then(communicationService).should(never()).getCommunicationsByType(ticketId, CommunicationType.WORK_NOTE);
         then(communicationService).should(never()).getCommunicationsByType(ticketId, CommunicationType.SYSTEM_EVENT);
@@ -183,7 +183,7 @@ public class TicketFacadeTest {
         UUID fakeRequesterId = UUID.randomUUID();
         RequesterContext requesterContext = new RequesterContext(fakeRequesterId, AccessLevel.STANDARD);
 
-        given(ticketService.getValidatedTicket(ticketId, fakeRequesterId))
+        given(ticketService.getValidatedTicket(ticketId, requesterContext))
                 .willThrow(new TicketOwnershipException(ticketId, fakeRequesterId));
 
         // when
@@ -194,7 +194,7 @@ public class TicketFacadeTest {
                 .isInstanceOf(TicketOwnershipException.class)
                 .hasMessageContaining("is not the owner of ticket");
 
-        then(ticketService).should().getValidatedTicket(ticketId, fakeRequesterId);
+        then(ticketService).should().getValidatedTicket(ticketId, requesterContext);
         then(communicationService).shouldHaveNoInteractions();
         then(attachmentService).shouldHaveNoInteractions();
         then(ticketMapper).shouldHaveNoInteractions();

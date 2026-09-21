@@ -2,6 +2,7 @@ package com.nn.ticketapp_api.ticket.service;
 
 import com.nn.ticketapp_api.admin.service.SlaConfigurationService;
 import com.nn.ticketapp_api.shared.api.response.PageResponse;
+import com.nn.ticketapp_api.shared.security.domain.RequesterContext;
 import com.nn.ticketapp_api.ticket.api.mapper.TicketMapper;
 import com.nn.ticketapp_api.ticket.api.request.TicketCreateRequest;
 import com.nn.ticketapp_api.ticket.api.request.TicketPatchRequest;
@@ -83,15 +84,28 @@ public class TicketService {
     }
 
     @Transactional(readOnly = true)
-    public Ticket getValidatedTicket(UUID ticketId, UUID requesterId) {
-        log.debug("Retrieving and validating access for ticket ID: {}", ticketId);
+    public Ticket getValidatedTicket(UUID ticketId, RequesterContext requesterContext) {
+        log.debug(
+                "Retrieving and validating access for ticket ID: {} for user: {}",
+                ticketId,
+                requesterContext.userId()
+        );
 
         Ticket ticket = getTicketOrThrow(ticketId);
 
-        if (!ticket.isOwnedBy(requesterId)) {
-            log.warn("Security violation: User {} attempted to access ticket {} owned by user {}",
-                    requesterId, ticketId, ticket.getCreatorId());
-            throw new TicketOwnershipException(ticketId, requesterId);
+        if (requesterContext.isAdmin()) {
+            log.debug("IDOR check bypassed for Admin (User: {}) on ticket ID: {}", requesterContext.userId(), ticketId);
+            return ticket;
+        }
+
+        if (!ticket.isOwnedBy(requesterContext.userId())) {
+            log.warn(
+                    "Security violation: User {} attempted to access ticket {} owned by user {}",
+                    requesterContext.userId(),
+                    ticketId,
+                    ticket.getCreatorId()
+            );
+            throw new TicketOwnershipException(ticketId, requesterContext.userId());
         }
 
         return ticket;
