@@ -297,11 +297,41 @@ public class TicketServiceTest {
     }
 
     @Test
+    @DisplayName("Should return validated ticket entity when agent is assigned")
+    void shouldReturnValidatedTicketForAssignedAgent() {
+        // given
+        UUID ticketId = UUID.randomUUID();
+        UUID agentId = UUID.randomUUID();
+        RequesterContext context = new RequesterContext(agentId, AccessLevel.AGENT);
+
+        Ticket ticket = buildTicket(
+                ticketId,
+                "INC0000005",
+                TicketStatus.IN_PROGRESS,
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                agentId
+        );
+
+        given(ticketRepository.findById(ticketId)).willReturn(Optional.of(ticket));
+
+        // when
+        Ticket actualResponse = ticketService.getValidatedTicket(ticketId, context);
+
+        // then
+        assertThat(actualResponse).isNotNull();
+        assertThat(actualResponse.getTicketNumber()).isEqualTo("INC0000005");
+
+        then(ticketRepository).should().findById(ticketId);
+    }
+
+    @Test
     @DisplayName("Should resolve ticket and change status to RESOLVED")
     void shouldResolveTicket() {
         // given
         UUID ticketId = UUID.randomUUID();
         UUID agentId = UUID.randomUUID();
+        RequesterContext context = new RequesterContext(agentId, AccessLevel.AGENT);
 
         Ticket ticket = buildTicket(
                 ticketId,
@@ -315,7 +345,7 @@ public class TicketServiceTest {
         given(ticketRepository.findById(ticketId)).willReturn(Optional.of(ticket));
 
         // when
-        ticketService.resolveTicket(ticketId, agentId, "Resolution details");
+        ticketService.resolveTicket(ticketId, context, "Resolution details");
 
         // then
         assertThat(ticket.getStatus()).isEqualTo(TicketStatus.RESOLVED);
@@ -332,6 +362,7 @@ public class TicketServiceTest {
         // given
         UUID ticketId = UUID.randomUUID();
         UUID ownerId = UUID.randomUUID();
+        RequesterContext context = new RequesterContext(ownerId, AccessLevel.STANDARD);
 
         Ticket ticket = buildTicket(
                 ticketId,
@@ -345,7 +376,7 @@ public class TicketServiceTest {
         given(ticketRepository.findById(ticketId)).willReturn(Optional.of(ticket));
 
         // when
-        ticketService.closeTicket(ticketId, ownerId);
+        ticketService.closeTicket(ticketId, context);
 
         // then
         assertThat(ticket.getStatus()).isEqualTo(TicketStatus.CLOSED);
@@ -361,6 +392,7 @@ public class TicketServiceTest {
         UUID ticketId = UUID.randomUUID();
         UUID ownerId = UUID.randomUUID();
         UUID maliciousUserId = UUID.randomUUID();
+        RequesterContext context = new RequesterContext(maliciousUserId, AccessLevel.STANDARD);
 
         Ticket ticket = buildTicket(
                 ticketId,
@@ -374,7 +406,7 @@ public class TicketServiceTest {
         given(ticketRepository.findById(ticketId)).willReturn(Optional.of(ticket));
 
         // when
-        Throwable thrown = catchThrowable(() -> ticketService.closeTicket(ticketId, maliciousUserId));
+        Throwable thrown = catchThrowable(() -> ticketService.closeTicket(ticketId, context));
 
         // when
         assertThat(thrown)
@@ -391,6 +423,7 @@ public class TicketServiceTest {
         // given
         UUID ticketId = UUID.randomUUID();
         UUID ownerId = UUID.randomUUID();
+        RequesterContext context = new RequesterContext(ownerId, AccessLevel.STANDARD);
 
         Ticket ticket = buildTicket(
                 ticketId,
@@ -404,7 +437,7 @@ public class TicketServiceTest {
         given(ticketRepository.findById(ticketId)).willReturn(Optional.of(ticket));
 
         // when
-        ticketService.reopenTicket(ticketId, ownerId);
+        ticketService.reopenTicket(ticketId, context);
 
         // then
         assertThat(ticket.getStatus()).isEqualTo(TicketStatus.IN_PROGRESS);
@@ -420,6 +453,7 @@ public class TicketServiceTest {
         UUID ticketId = UUID.randomUUID();
         UUID ownerId = UUID.randomUUID();
         UUID maliciousUserId = UUID.randomUUID();
+        RequesterContext context = new RequesterContext(maliciousUserId, AccessLevel.STANDARD);
 
         Ticket ticket = buildTicket(
                 ticketId,
@@ -433,7 +467,7 @@ public class TicketServiceTest {
         given(ticketRepository.findById(ticketId)).willReturn(Optional.of(ticket));
 
         // when
-        Throwable thrown = catchThrowable(() -> ticketService.reopenTicket(ticketId, maliciousUserId));
+        Throwable thrown = catchThrowable(() -> ticketService.reopenTicket(ticketId, context));
 
         // then
         assertThat(thrown)
@@ -451,6 +485,7 @@ public class TicketServiceTest {
         UUID ticketId = UUID.randomUUID();
         UUID agentId = UUID.randomUUID();
         UUID newTeamId = UUID.randomUUID();
+        RequesterContext context = new RequesterContext(agentId, AccessLevel.AGENT);
 
         Ticket ticket = buildTicket(
                 ticketId,
@@ -466,7 +501,7 @@ public class TicketServiceTest {
         given(ticketRepository.findById(ticketId)).willReturn(Optional.of(ticket));
 
         // when
-        ticketService.updateTicketDetails(ticketId, request, agentId);
+        ticketService.updateTicketDetails(ticketId, request, context);
 
         // then
         assertThat(ticket.getTitle()).isEqualTo("New Title");

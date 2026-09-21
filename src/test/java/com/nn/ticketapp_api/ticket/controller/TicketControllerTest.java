@@ -280,7 +280,8 @@ public class TicketControllerTest extends BaseControllerTest {
                 Instant.now().plusSeconds(3600)
         );
 
-        given(ticketService.resolveTicket(ticketId, agentId, request.resolutionNote())).willReturn(mockResponse);
+        given(ticketService.resolveTicket(eq(ticketId), any(RequesterContext.class), eq(request.resolutionNote())))
+                .willReturn(mockResponse);
 
         // when
         mockMvc.perform(post("/api/v1/tickets/{id}/resolve", ticketId)
@@ -291,7 +292,8 @@ public class TicketControllerTest extends BaseControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("RESOLVED"));
 
-        then(ticketService).should().resolveTicket(eq(ticketId), eq(agentId), eq(request.resolutionNote()));
+        then(ticketService).should()
+                .resolveTicket(eq(ticketId), any(RequesterContext.class), eq(request.resolutionNote()));
     }
 
     @Test
@@ -302,7 +304,7 @@ public class TicketControllerTest extends BaseControllerTest {
         UUID ticketId = UUID.randomUUID();
         ResolutionRequest request = new ResolutionRequest("Provided resolution.");
 
-        given(ticketService.resolveTicket(ticketId, agentId, request.resolutionNote()))
+        given(ticketService.resolveTicket(eq(ticketId), any(RequesterContext.class), eq(request.resolutionNote())))
                 .willThrow(new InvalidStatusTransitionException("Ticket is already closed and cannot be resolved"));
 
         // when
@@ -331,7 +333,7 @@ public class TicketControllerTest extends BaseControllerTest {
                 UUID.randomUUID()
         );
 
-        given(ticketService.updateTicketDetails(ticketId, request, agentId))
+        given(ticketService.updateTicketDetails(eq(ticketId), eq(request), any(RequesterContext.class)))
                 .willThrow(new TicketClosedException("Ticket is closed and cannot be modified"));
 
         // when
@@ -346,7 +348,7 @@ public class TicketControllerTest extends BaseControllerTest {
                 .andExpect(jsonPath("$.detail")
                         .value("Ticket is closed and cannot be modified"));
 
-        then(ticketService).should().updateTicketDetails(eq(ticketId), eq(request), eq(agentId));
+        then(ticketService).should().updateTicketDetails(eq(ticketId), eq(request), any(RequesterContext.class));
     }
 
     @Test
@@ -365,7 +367,7 @@ public class TicketControllerTest extends BaseControllerTest {
                 Instant.now().plusSeconds(3600)
         );
 
-        given(ticketService.reopenTicket(ticketId, requesterId)).willReturn(mockResponse);
+        given(ticketService.reopenTicket(eq(ticketId), any(RequesterContext.class))).willReturn(mockResponse);
 
         // when
         mockMvc.perform(post("/api/v1/tickets/{id}/reopen", ticketId)
@@ -375,7 +377,7 @@ public class TicketControllerTest extends BaseControllerTest {
                 .andExpect(jsonPath("$.status").value("IN_PROGRESS"))
                 .andExpect(jsonPath("$.title").value("Reopened ticket"));
 
-        then(ticketService).should().reopenTicket(eq(ticketId), eq(requesterId));
+        then(ticketService).should().reopenTicket(eq(ticketId), any(RequesterContext.class));
     }
 
     @Test
@@ -401,7 +403,7 @@ public class TicketControllerTest extends BaseControllerTest {
                 Instant.now().plusSeconds(1800)
         );
 
-        given(ticketService.updateTicketDetails(ticketId, request, agentId)).willReturn(mockResponse);
+        given(ticketService.updateTicketDetails(eq(ticketId), eq(request), any(RequesterContext.class))).willReturn(mockResponse);
 
         // when
         mockMvc.perform(patch("/api/v1/tickets/{id}", ticketId)
@@ -412,7 +414,7 @@ public class TicketControllerTest extends BaseControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.title").value("New title"));
 
-        then(ticketService).should().updateTicketDetails(eq(ticketId), eq(request), eq(agentId));
+        then(ticketService).should().updateTicketDetails(eq(ticketId), eq(request), any(RequesterContext.class));
     }
 
     @Test

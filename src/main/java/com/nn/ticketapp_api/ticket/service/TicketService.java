@@ -2,6 +2,7 @@ package com.nn.ticketapp_api.ticket.service;
 
 import com.nn.ticketapp_api.admin.service.SlaConfigurationService;
 import com.nn.ticketapp_api.shared.api.response.PageResponse;
+import com.nn.ticketapp_api.shared.security.domain.AccessLevel;
 import com.nn.ticketapp_api.shared.security.domain.RequesterContext;
 import com.nn.ticketapp_api.ticket.api.mapper.TicketMapper;
 import com.nn.ticketapp_api.ticket.api.request.TicketCreateRequest;
@@ -98,12 +99,15 @@ public class TicketService {
             return ticket;
         }
 
-        if (!ticket.isOwnedBy(requesterContext.userId())) {
+        boolean isOwner = ticket.isOwnedBy(requesterContext.userId());
+        boolean isAssignedAgent = requesterContext.accessLevel() == AccessLevel.AGENT
+                && requesterContext.userId().equals(ticket.getAssignedAgentId());
+
+        if (!isOwner && !isAssignedAgent) {
             log.warn(
-                    "Security violation: User {} attempted to access ticket {} owned by user {}",
+                    "Security violation: User {} attempted to access ticket {} without ownership or assignment",
                     requesterContext.userId(),
-                    ticketId,
-                    ticket.getCreatorId()
+                    ticketId
             );
             throw new TicketOwnershipException(ticketId, requesterContext.userId());
         }
@@ -123,15 +127,15 @@ public class TicketService {
     }
 
     @Transactional
-    public TicketResponse resolveTicket(UUID ticketId, UUID agentId, String resolutionNote) {
-        log.debug("Resolving ticket {} by agent {}", ticketId, agentId);
+    public TicketResponse resolveTicket(UUID ticketId, RequesterContext requesterContext, String resolutionNote) {
+        log.debug("Resolving ticket {} by agent {}", ticketId, requesterContext.userId());
 
-        Ticket ticket = getTicketOrThrow(ticketId);
+        Ticket ticket = getValidatedTicket(ticketId, requesterContext);
         ticket.resolve(Instant.now(clock));
 
         eventPublisher.publishEvent(new TicketResolvedEvent(
                         ticketId,
-                        agentId,
+                        requesterContext.userId(),
                         ticket.getAssignedTeamId(),
                         resolutionNote
                 )
@@ -142,20 +146,10 @@ public class TicketService {
     }
 
     @Transactional
-    public TicketResponse closeTicket(UUID ticketId, UUID requesterId) {
-        log.debug("Closing ticket {} by user {}", ticketId, requesterId);
+    public TicketResponse closeTicket(UUID ticketId, RequesterContext requesterContext) {
+        log.debug("Closing ticket {} by user {}", ticketId, requesterContext.userId());
 
-        Ticket ticket = getTicketOrThrow(ticketId);
-
-        if (!ticket.isOwnedBy(requesterId)) {
-            log.warn(
-                    "Security violation: User {} attempted to close ticket {} without ownership",
-                    requesterId,
-                    ticketId
-            );
-            throw new TicketOwnershipException(ticketId, requesterId);
-        }
-
+        Ticket ticket = getValidatedTicket(ticketId, requesterContext);
         ticket.close();
 
         log.info("Ticket {} successfully closed", ticket.getTicketNumber());
@@ -163,20 +157,10 @@ public class TicketService {
     }
 
     @Transactional
-    public TicketResponse reopenTicket(UUID ticketId, UUID requesterId) {
-        log.debug("Reopening ticket {} by user {}", ticketId, requesterId);
+    public TicketResponse reopenTicket(UUID ticketId, RequesterContext requesterContext) {
+        log.debug("Reopening ticket {} by user {}", ticketId, requesterContext.userId());
 
-        Ticket ticket = getTicketOrThrow(ticketId);
-
-        if (!ticket.isOwnedBy(requesterId)) {
-            log.warn(
-                    "Security violation: User {} attempted to reopen ticket {} without ownership",
-                    requesterId,
-                    ticketId
-            );
-            throw new TicketOwnershipException(ticketId, requesterId);
-        }
-
+        Ticket ticket = getValidatedTicket(ticketId, requesterContext);
         ticket.reopen();
 
         log.info("Ticket {} successfully reopened", ticket.getTicketNumber());
@@ -184,10 +168,14 @@ public class TicketService {
     }
 
     @Transactional
-    public TicketResponse updateTicketDetails(UUID ticketId, TicketPatchRequest ticketPatchRequest, UUID agentId) {
-        log.debug("Updating details for ticket {} by agent {}", ticketId, agentId);
+    public TicketResponse updateTicketDetails(
+            UUID ticketId,
+            TicketPatchRequest ticketPatchRequest,
+            RequesterContext requesterContext
+    ) {
+        log.debug("Updating details for ticket {} by agent {}", ticketId, requesterContext.userId());
 
-        Ticket ticket = getTicketOrThrow(ticketId);
+        Ticket ticket = getValidatedTicket(ticketId, requesterContext);
 
         ticket.updateDetails(
                 ticketPatchRequest.title(),
