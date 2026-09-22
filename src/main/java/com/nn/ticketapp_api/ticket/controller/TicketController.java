@@ -87,7 +87,7 @@ public class TicketController {
 
         log.debug("Received request to resolve ticket {} by agent: {}", ticketId, requesterContext.userId());
 
-        return ticketService.resolveTicket(ticketId, requesterContext.userId(), resolutionRequest.resolutionNote());
+        return ticketService.resolveTicket(ticketId, requesterContext, resolutionRequest.resolutionNote());
     }
 
     @PostMapping("/{id}/close")
@@ -98,7 +98,7 @@ public class TicketController {
     ) {
         log.debug("Received request to close ticket {} by user: {}", ticketId, requesterContext.userId());
 
-        return ticketService.closeTicket(ticketId, requesterContext.userId());
+        return ticketService.closeTicket(ticketId, requesterContext);
     }
 
     @PostMapping("/{id}/reopen")
@@ -109,7 +109,7 @@ public class TicketController {
     ) {
         log.debug("Received request to reopen ticket {} by user: {}", ticketId, requesterContext.userId());
 
-        return ticketService.reopenTicket(ticketId, requesterContext.userId());
+        return ticketService.reopenTicket(ticketId, requesterContext);
     }
 
     @PatchMapping("/{id}")
@@ -123,7 +123,7 @@ public class TicketController {
 
         log.debug("Received request to update details for ticket {} by agent: {}", ticketId, requesterContext.userId());
 
-        return ticketService.updateTicketDetails(ticketId, ticketPatchRequest, requesterContext.userId());
+        return ticketService.updateTicketDetails(ticketId, ticketPatchRequest, requesterContext);
     }
 
     @GetMapping("/queue")

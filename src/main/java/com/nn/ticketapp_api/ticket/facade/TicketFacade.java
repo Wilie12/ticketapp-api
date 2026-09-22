@@ -33,7 +33,7 @@ public class TicketFacade {
     public TicketDetailsResponse getTicketDetails(UUID ticketId, RequesterContext requesterContext) {
         log.debug("Orchestrating ticket details aggregation for ticket ID: {}", ticketId);
 
-        Ticket ticket = ticketService.getValidatedTicket(ticketId, requesterContext.userId());
+        Ticket ticket = ticketService.getValidatedTicket(ticketId, requesterContext);
 
         List<CommunicationResponse> comments = communicationService
                 .getCommunicationsByType(ticketId, CommunicationType.PUBLIC_COMMENT);

@@ -53,11 +53,23 @@ public class CurrentRequesterArgumentResolver implements HandlerMethodArgumentRe
 
         Collection<? extends GrantedAuthority> authorities = authentication.getAuthorities();
 
-        boolean isInternalUser = authorities.stream()
-                .map(GrantedAuthority::getAuthority).filter(Objects::nonNull)
-                .anyMatch(role -> role.equals(ROLE_AGENT) || role.equals(ROLE_ADMIN));
+        boolean isAdmin = authorities.stream()
+                .map(GrantedAuthority::getAuthority)
+                .filter(Objects::nonNull)
+                .anyMatch(role -> role.equals(ROLE_ADMIN));
 
-        AccessLevel accessLevel = isInternalUser ? AccessLevel.INTERNAL : AccessLevel.STANDARD;
+        boolean isAgent = authorities.stream()
+                .map(GrantedAuthority::getAuthority)
+                .filter(Objects::nonNull)
+                .anyMatch(role -> role.equals(ROLE_AGENT));
+
+        AccessLevel accessLevel = AccessLevel.STANDARD;
+
+        if (isAdmin) {
+            accessLevel = AccessLevel.ADMIN;
+        } else if (isAgent) {
+            accessLevel = AccessLevel.AGENT;
+        }
 
         return new RequesterContext(userId, accessLevel);
     }
