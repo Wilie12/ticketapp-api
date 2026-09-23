@@ -9,10 +9,12 @@ import com.nn.ticketapp_api.ticket.domain.Ticket;
 import com.nn.ticketapp_api.ticket.domain.TicketPriority;
 import com.nn.ticketapp_api.ticket.domain.TicketStatus;
 import com.nn.ticketapp_api.ticket.repository.projection.AgentStatsProjection;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -34,8 +36,12 @@ public class AgentStatsRepositoryTest extends BaseIntegrationTest {
     private TeamRepository teamRepository;
     @Autowired
     private AgentProfileRepository agentProfileRepository;
+    @Autowired
+    private EntityManager entityManager;
+    @Autowired
+    private TransactionTemplate transactionTemplate;
 
-    private final Instant fixedNow = Instant.parse("2026-08-06T14:00:00Z");
+    private final Instant fixedNow = Instant.now().truncatedTo(ChronoUnit.SECONDS);
     private final Clock fixedClock = Clock.fixed(fixedNow, ZoneId.of("UTC"));
 
     @AfterEach
@@ -43,10 +49,17 @@ public class AgentStatsRepositoryTest extends BaseIntegrationTest {
         ticketRepository.deleteAllInBatch();
         agentProfileRepository.deleteAllInBatch();
         teamRepository.deleteAllInBatch();
+        refreshMaterializedView();
+    }
+
+    private void refreshMaterializedView() {
+        transactionTemplate.executeWithoutResult(status -> {
+            entityManager.createNativeQuery("REFRESH MATERIALIZED VIEW agent_stats_mv").executeUpdate();
+        });
     }
 
     @Test
-    @DisplayName("Should accurately aggregate agent statistics")
+    @DisplayName("Should accurately aggregate agent statistics from materialized view")
     void shouldAggregateAgentStatisticsAccurately() {
         // given
         Team team = Team.create("Stats Team", "For analytics");
@@ -122,10 +135,11 @@ public class AgentStatsRepositoryTest extends BaseIntegrationTest {
         ticketRepository.save(sixthTicket);
 
         ticketRepository.flush();
+        refreshMaterializedView();
 
         // when
-        Optional<AgentStatsProjection> statsResult = agentStatsRepository.findStatsByAgentId(targetAgentId, now);
-        List<AgentStatsProjection> allStatsResult = agentStatsRepository.findAllAgentStats(now);
+        Optional<AgentStatsProjection> statsResult = agentStatsRepository.findStatsByAgentId(targetAgentId);
+        List<AgentStatsProjection> allStatsResult = agentStatsRepository.findAllAgentStats();
 
         // then
         assertThat(statsResult).isPresent();
