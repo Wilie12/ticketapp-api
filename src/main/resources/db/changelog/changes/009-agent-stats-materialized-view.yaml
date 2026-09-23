@@ -1,0 +1,25 @@
+databaseChangeLog:
+  - changeSet:
+      id: 009-agent-stats-materialized-view
+      author: Wilie12
+      changes:
+        - sql:
+            sql: >
+              CREATE MATERIALIZED VIEW agent_stats_mv AS
+              SELECT
+                t.assigned_agent_id AS agent_id,
+                COUNT(t.id) FILTER (WHERE t.status = 'IN_PROGRESS') AS current_open_tickets_count,
+                COUNT(t.id) FILTER (WHERE t.status IN ('RESOLVED', 'CLOSED')) AS all_resolved_tickets_count,
+                COUNT(t.id) FILTER (WHERE
+                  (t.resolved_at IS NOT NULL AND t.resolved_at > t.sla_deadline) OR
+                  (t.resolved_at IS NULL AND CURRENT_TIMESTAMP > t.sla_deadline)
+                ) AS all_sla_breached_count
+              FROM tickets t
+              WHERE t.assigned_agent_id IS NOT NULL
+              GROUP BY t.assigned_agent_id;
+        - sql:
+            sql: >
+              CREATE UNIQUE INDEX idx_agent_stats_mv_agent_id ON agent_stats_mv(agent_id);
+      rollback:
+        - sql:
+            sql: DROP MATERIALIZED VIEW IF EXISTS agent_stats_mv;
