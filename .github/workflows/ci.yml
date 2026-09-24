@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up JDK 21
@@ -20,5 +20,13 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
+      - name: Grant execute permission for Maven wrapper
+        run: chmod +x mvnw
+
       - name: Build and Test with Maven
-        run: mvn clean verify
+        env:
+          MAVEN_OPTS: "-Xmx1024n -XX:MaxMetaspaceSize=512m"
+        run: ./mvnw clean verify -B -ntp
+
+      - name: Build OCI Docker Image
+        run: ./mvnw spring-boot:build-image -DskipTests -B -ntp
