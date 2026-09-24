@@ -25,7 +25,7 @@ jobs:
 
       - name: Build and Test with Maven
         env:
-          MAVEN_OPTS: "-Xmx1024n -XX:MaxMetaspaceSize=512m"
+          MAVEN_OPTS: "-Xmx1024m -XX:MaxMetaspaceSize=512m"
         run: ./mvnw clean verify -B -ntp
 
       - name: Build OCI Docker Image
