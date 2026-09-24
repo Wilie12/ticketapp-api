@@ -18,7 +18,8 @@ public class SecurityConfig {
     private static final String[] PUBLIC_WHITELIST = {
             "/v3/api-docs/**",
             "/swagger-ui/**",
-            "/swagger-ui.html"
+            "/swagger-ui.html",
+            "/actuator/health",
     };
 
     @Bean
