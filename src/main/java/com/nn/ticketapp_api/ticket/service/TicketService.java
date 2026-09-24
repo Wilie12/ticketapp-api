@@ -85,6 +85,15 @@ public class TicketService {
     }
 
     @Transactional(readOnly = true)
+    public PageResponse<TicketResponse> getAllTickets(Pageable pageable) {
+        log.debug("Retrieving all tickets (paginated) for admin global view");
+
+        Page<Ticket> ticketPage = ticketRepository.findAll(pageable);
+
+        return PageResponse.of(ticketPage.map(ticketMapper::toResponse));
+    }
+
+    @Transactional(readOnly = true)
     public Ticket getValidatedTicket(UUID ticketId, RequesterContext requesterContext) {
         log.debug(
                 "Retrieving and validating access for ticket ID: {} for user: {}",
