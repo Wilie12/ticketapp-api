@@ -25,10 +25,7 @@ import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.*;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -148,6 +145,48 @@ public class TicketServiceTest {
 
         then(ticketRepository).should().findAllByCreatorIdOrderByCreatedAtDesc(creatorId);
         then(ticketMapper).should().toResponse(ticket);
+    }
+
+    @Test
+    @DisplayName("Should retrieve paginated list of all tickets and map to PageResponse")
+    void shouldRetrieveAllTicketsPaginated() {
+        // given
+        Pageable pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
+
+        Ticket mockTicket = buildTicket(
+                UUID.randomUUID(),
+                "INC0000001",
+                TicketStatus.NEW,
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                null
+        );
+        TicketResponse expectedResponse = new TicketResponse(
+                UUID.randomUUID(),
+                "INC0000001",
+                "Test ticket",
+                TicketStatus.NEW,
+                Instant.now(clock),
+                null
+        );
+
+        Page<Ticket> mockPage = new PageImpl<>(List.of(mockTicket), pageable, 1);
+
+        given(ticketRepository.findAll(pageable)).willReturn(mockPage);
+        given(ticketMapper.toResponse(mockTicket)).willReturn(expectedResponse);
+
+        // when
+        PageResponse<TicketResponse> actualResponse = ticketService.getAllTickets(pageable);
+
+        // then
+        assertThat(actualResponse).isNotNull();
+        assertThat(actualResponse.content()).hasSize(1);
+        assertThat(actualResponse.content().get(0).ticketNumber()).isEqualTo("INC0000001");
+        assertThat(actualResponse.totalElements()).isEqualTo(1);
+        assertThat(actualResponse.totalPages()).isEqualTo(1);
+
+        then(ticketRepository).should().findAll(pageable);
+        then(ticketMapper).should().toResponse(mockTicket);
     }
 
     @Test
