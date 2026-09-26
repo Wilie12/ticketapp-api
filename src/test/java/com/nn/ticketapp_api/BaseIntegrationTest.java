@@ -2,16 +2,23 @@ package com.nn.ticketapp_api;
 
 import dasniko.testcontainers.keycloak.KeycloakContainer;
 import io.minio.MinioClient;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 @SpringBootTest
+@AutoConfigureMockMvc
 public class BaseIntegrationTest {
+
+    @Autowired
+    protected MockMvc mockMvc;
 
     @ServiceConnection
     static PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:16-alpine");
@@ -25,14 +32,14 @@ public class BaseIntegrationTest {
     }
 
     @DynamicPropertySource
-    static void keyCloakProperties(DynamicPropertyRegistry registry) {
+    static void configureProperties(DynamicPropertyRegistry registry) {
         registry.add("app.identity.keycloak.server-url", keycloak::getAuthServerUrl);
         registry.add("app.identity.keycloak.realm", () -> "ticketapp");
         registry.add("app.identity.keycloak.client-id", () -> "ticketapp-backend");
         registry.add("app.identity.keycloak.client-secret",() -> "secret");
         registry.add("spring.security.oauth2.resourceserver.jwt.issuer-uri",
                 () -> keycloak.getAuthServerUrl() + "/realms/ticketapp");
-
+        registry.add("management.health.mail.enabled", () -> "false");
     }
 
     @MockitoBean

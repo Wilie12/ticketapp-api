@@ -16,6 +16,8 @@ Domain-Driven Design (DDD) and Security by Design principles, the application ac
 * **S3-Compatible Object Storage:** Idempotent attachment handling powered by MinIO, decoupling heavy binary streaming from the relational database.
 * **Resilience & Rate Limiting:** Token Bucket algorithm implemented via `Bucket4j` to mitigate DoS attacks and prevent thread pool starvation.
 * **Shift-Left Error Handling:** Global RFC 7807 (`ProblemDetail`) compliance with robust Domain Exception mapping and compile-time DTO projections (MapStruct).
+* **Enterprise Observability:** Real-time telemetry and custom event-driven business metrics exposed via Micrometer and Spring Boot Actuator, scraped by Prometheus and visualized in Grafana.
+
 ## Technology Stack
 
 * **Language:** Java 21+
@@ -27,6 +29,7 @@ Domain-Driven Design (DDD) and Security by Design principles, the application ac
 * **Containerization:** Docker & Docker Compose
 * **CI/CD:** GitHub Actions 
 * **Testing:** JUnit 5, AssertJ, Mockito, Testcontainers
+* **Observability:** Spring Boot Actuator, Micrometer, Prometheus, Grafana
 
 ## How to Run Locally
 
