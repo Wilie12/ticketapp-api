@@ -25,20 +25,20 @@ public class TeamExceptionHandler {
     public ProblemDetail handleTeamNotFoundException(TeamNotFoundException e, HttpServletRequest request) {
         log.warn("Team resource not found on path {}: {} ",request.getRequestURI(), e.getMessage() );
 
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, e.getMessage());
-        problemDetail.setTitle("Team Not Found");
-        problemDetail.setProperty("timestamp", Instant.now());
-
-        return problemDetail;
+        return createProblemDetail(HttpStatus.NOT_FOUND, "Team Not Found", e.getMessage());
     }
 
     @ExceptionHandler(TeamAlreadyExistsException.class)
     public ProblemDetail handleTeamAlreadyExistsException(TeamAlreadyExistsException e, HttpServletRequest request) {
         log.warn("Team state conflict on path {}: {} ",request.getRequestURI(), e.getMessage() );
 
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());
-        problemDetail.setTitle("Team Already Exists");
-        problemDetail.setProperty("timestamp", Instant.now());
+        return createProblemDetail(HttpStatus.CONFLICT, "Team Already Exists", e.getMessage());
+    }
+
+    private ProblemDetail createProblemDetail(HttpStatus status, String title, String detail) {
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(status, detail);
+        problemDetail.setTitle(title);
+        problemDetail.setProperty("timestamp", Instant.now(clock));
 
         return problemDetail;
     }

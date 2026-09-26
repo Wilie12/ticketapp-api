@@ -13,6 +13,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -27,6 +28,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(TeamController.class)
 public class TeamControllerTest extends BaseControllerTest {
+
+    private static final Instant FIXED_NOW = Instant.parse("2026-09-26T17:40:00Z");
 
     @MockitoBean
     private TeamService teamService;
@@ -125,6 +128,7 @@ public class TeamControllerTest extends BaseControllerTest {
         // given
         UUID teamId = UUID.randomUUID();
         given(teamService.getTeam(teamId)).willThrow(new TeamNotFoundException(teamId));
+        given(clock.instant()).willReturn(FIXED_NOW);
 
         // when
         mockMvc.perform(get("/api/v1/teams/{id}", teamId)
@@ -133,7 +137,8 @@ public class TeamControllerTest extends BaseControllerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.title").value("Team Not Found"))
                 .andExpect(jsonPath("$.detail")
-                        .value(String.format("Team with ID %s not found", teamId)));
+                        .value(String.format("Team with ID %s not found", teamId)))
+                .andExpect(jsonPath("$.timestamp").value(FIXED_NOW.toString()));
 
         then(teamService).should().getTeam(teamId);
     }
@@ -206,6 +211,7 @@ public class TeamControllerTest extends BaseControllerTest {
         UUID teamId = UUID.randomUUID();
         TeamUpdateRequest request = new TeamUpdateRequest("Existing name", null);
 
+        given(clock.instant()).willReturn(FIXED_NOW);
         given(teamService.updateTeam(eq(teamId), any(TeamUpdateRequest.class)))
                 .willThrow(new TeamAlreadyExistsException(("Existing name")));
 
@@ -215,7 +221,8 @@ public class TeamControllerTest extends BaseControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.title").value("Team Already Exists"));
+                .andExpect(jsonPath("$.title").value("Team Already Exists"))
+                .andExpect(jsonPath("$.timestamp").value(FIXED_NOW.toString()));
 
         then(teamService).should().updateTeam(teamId, request);
     }
