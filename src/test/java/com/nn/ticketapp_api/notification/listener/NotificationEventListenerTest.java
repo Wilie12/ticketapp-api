@@ -1,94 +1,90 @@
 package com.nn.ticketapp_api.notification.listener;
 
-import com.nn.ticketapp_api.BaseIntegrationTest;
-import com.nn.ticketapp_api.agent.domain.AgentProfile;
-import com.nn.ticketapp_api.agent.repository.AgentProfileRepository;
 import com.nn.ticketapp_api.notification.service.EmailSender;
+import com.nn.ticketapp_api.notification.template.EmailTemplateProcessor;
 import com.nn.ticketapp_api.shared.identity.service.IdentityGateway;
-import com.nn.ticketapp_api.team.domain.Team;
-import com.nn.ticketapp_api.team.repository.TeamRepository;
 import com.nn.ticketapp_api.ticket.domain.Ticket;
 import com.nn.ticketapp_api.ticket.domain.TicketPriority;
 import com.nn.ticketapp_api.ticket.domain.TicketStatus;
 import com.nn.ticketapp_api.ticket.domain.event.TicketCreatedEvent;
 import com.nn.ticketapp_api.ticket.domain.event.TicketResolvedEvent;
 import com.nn.ticketapp_api.ticket.repository.TicketRepository;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.transaction.support.TransactionTemplate;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
-import static org.mockito.Mockito.timeout;
 
-public class NotificationEventListenerTest extends BaseIntegrationTest {
+@ExtendWith(MockitoExtension.class)
+public class NotificationEventListenerTest {
 
-    @Autowired
-    private ApplicationEventPublisher eventPublisher;
-    @Autowired
+    @Mock
     private TicketRepository ticketRepository;
-    @Autowired
-    private TeamRepository teamRepository;
-    @Autowired
-    private AgentProfileRepository agentProfileRepository;
-    @Autowired
-    private TransactionTemplate transactionTemplate;
-
-    @MockitoBean
+    @Mock
+    private EmailTemplateProcessor emailTemplateProcessor;
+    @Mock
     private EmailSender emailSender;
-    @MockitoBean
+    @Mock
     private IdentityGateway identityGateway;
 
-    @AfterEach
-    void tearDown() {
-        ticketRepository.deleteAllInBatch();
-        agentProfileRepository.deleteAllInBatch();
-        teamRepository.deleteAllInBatch();
-    }
+    @InjectMocks
+    private NotificationEventListener notificationEventListener;
 
     @Test
     @DisplayName("Should process TicketCreatedEvent asynchronously after transaction commit and send email")
     void shouldProcessTicketCreatedEventAndSendEmail() {
         // given
-        Team team = Team.create("Infrastructure", "Handles backend issues");
-        teamRepository.saveAndFlush(team);
-
+        UUID ticketId = UUID.randomUUID();
+        UUID teamId = UUID.randomUUID();
         UUID creatorId = UUID.randomUUID();
+
         Ticket ticket = Ticket.builder()
+                .id(ticketId)
                 .ticketNumber("INC0000123")
                 .title("VPN Connection Issue")
                 .description("Cannot connect to VPN")
                 .priority(TicketPriority.HIGH)
                 .status(TicketStatus.NEW)
                 .creatorId(creatorId)
-                .assignedTeamId(team.getId())
+                .assignedTeamId(teamId)
                 .build();
-        ticketRepository.saveAndFlush(ticket);
 
-        TicketCreatedEvent event = new TicketCreatedEvent(ticket.getId(), ticket.getAssignedTeamId());
+        TicketCreatedEvent event = new TicketCreatedEvent(ticketId, teamId);
 
         String expectedRecipient = String.format("user-%s@ticketapp.local", creatorId);
+        String expectedHtmlBody = "<html>Ticket INC0000123 Created</html>";
+
+        Map<String, Object> expectedVariables = Map.of(
+                "ticketNumber", "INC0000123",
+                "title", "VPN Connection Issue",
+                "priority", "HIGH"
+        );
+
+        given(ticketRepository.findById(ticketId)).willReturn(Optional.of(ticket));
         given(identityGateway.getEmailById(creatorId)).willReturn(Optional.of(expectedRecipient));
+        given(emailTemplateProcessor.processTemplate(eq("email/ticket-created"), eq(expectedVariables)))
+                .willReturn(expectedHtmlBody);
 
         // when
-        transactionTemplate.executeWithoutResult(status -> eventPublisher.publishEvent(event));
+        notificationEventListener.handleTicketCreated(event);
 
         // then
-        String expectedSubject = "Ticket Created: INC0000123";
-
-        then(emailSender).should(timeout(2000)).sendHtmlEmail(
-                eq(expectedRecipient),
-                eq(expectedSubject),
-                contains("VPN Connection Issue")
+        then(ticketRepository).should().findById(ticketId);
+        then(identityGateway).should().getEmailById(creatorId);
+        then(emailTemplateProcessor).should().processTemplate("email/ticket-created", expectedVariables);
+        then(emailSender).should().sendHtmlEmail(
+                expectedRecipient,
+                "Ticket Created: INC0000123",
+                expectedHtmlBody
         );
     }
 
@@ -96,46 +92,49 @@ public class NotificationEventListenerTest extends BaseIntegrationTest {
     @DisplayName("Should process TicketResolvedEvent asynchronously after transaction commit and send email")
     void shouldProcessTicketResolvedEventAndSendEmail() {
         // given
-        Team team = Team.create("Network", "Handles connectivity issues");
-        teamRepository.saveAndFlush(team);
-
+        UUID ticketId = UUID.randomUUID();
+        UUID teamId = UUID.randomUUID();
         UUID agentId = UUID.randomUUID();
-        AgentProfile agent = AgentProfile.create(agentId, team.getId());
-        agentProfileRepository.saveAndFlush(agent);
-
         UUID creatorId = UUID.randomUUID();
+        String resolutionNote = "Restarted the core router.";
+
         Ticket ticket = Ticket.builder()
+                .id(ticketId)
                 .ticketNumber("INC0000124")
                 .title("Network Issue")
                 .description("Network is down")
                 .priority(TicketPriority.CRITICAL)
                 .status(TicketStatus.RESOLVED)
                 .creatorId(creatorId)
-                .assignedTeamId(team.getId())
-                .assignedAgentId(agent.getId())
+                .assignedTeamId(teamId)
+                .assignedAgentId(agentId)
                 .build();
-        ticketRepository.saveAndFlush(ticket);
 
-        TicketResolvedEvent event = new TicketResolvedEvent(
-                ticket.getId(),
-                ticket.getAssignedAgentId(),
-                ticket.getAssignedTeamId(),
-                "Restarted the core router."
+        TicketResolvedEvent event = new TicketResolvedEvent(ticketId, agentId, teamId, resolutionNote);
+        String expectedRecipient = String.format("user-%s@ticketapp.local", creatorId);
+        String expectedHtmlBody = "<html>Ticket INC0000124 Resolved</html>";
+
+        Map<String, Object> expectedVariables = Map.of(
+                "ticketNumber", "INC0000124",
+                "resolutionNote", resolutionNote
         );
 
-        String expectedRecipient = String.format("user-%s@ticketapp.local", creatorId);
+        given(ticketRepository.findById(ticketId)).willReturn(Optional.of(ticket));
         given(identityGateway.getEmailById(creatorId)).willReturn(Optional.of(expectedRecipient));
+        given(emailTemplateProcessor.processTemplate(eq("email/ticket-resolved"), eq(expectedVariables)))
+                .willReturn(expectedHtmlBody);
 
         // when
-        transactionTemplate.executeWithoutResult(status -> eventPublisher.publishEvent(event));
+        notificationEventListener.handleTicketResolved(event);
 
         // then
-        String expectedSubject = "Ticket Resolved: INC0000124";
-
-        then(emailSender).should(timeout(2000)).sendHtmlEmail(
-                eq(expectedRecipient),
-                eq(expectedSubject),
-                contains("Restarted the core router.")
+        then(ticketRepository).should().findById(ticketId);
+        then(identityGateway).should().getEmailById(creatorId);
+        then(emailTemplateProcessor).should().processTemplate("email/ticket-resolved", expectedVariables);
+        then(emailSender).should().sendHtmlEmail(
+                expectedRecipient,
+                "Ticket Resolved: INC0000124",
+                expectedHtmlBody
         );
     }
 }
