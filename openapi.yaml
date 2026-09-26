@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: Helpdesk System API
-  description: Commercial API for technical support ticket management, based on an asynchronous queue assignment architecture.
+  title: TicketApp Helpdesk System API
+  description: Commercial-grade RESTful API for IT Support and Service Desk ticket management, featuring an asynchronous event-driven FIFO assignment queue, OAuth 2.0 security, S3 object storage, and CQRS materialized view analytics.
   version: 1.0.0
 servers:
   - url: http://localhost:8080
@@ -9,19 +9,19 @@ servers:
 
 paths:
   # =========================================
-  # MODULE: TICKETS (CORE)
+  # MODULE: TICKETS (CORE & QUEUE)
   # =========================================
   /api/v1/tickets:
     get:
-      summary: Get user's tickets
-      description: Returns a list of tickets created by authenticated user.
+      summary: Get authenticated user's tickets
+      description: Returns a list of tickets created by the currently authenticated user, ordered by creation date descending.
       tags:
-        - Tickets (User)
+        - Tickets (Core)
       security:
         - bearerAuth: []
       responses:
         '200':
-          description: A list of tickets
+          description: A list of user's tickets
           content:
             application/json:
               schema:
@@ -31,14 +31,14 @@ paths:
         '401':
           description: Unauthorized (missing or invalid JWT)
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
     post:
       summary: Create a new support ticket
-      description: Creates a new ticket on behalf of the user and places it in the unassigned queue with a 'NEW' status.
+      description: Creates a new ticket on behalf of the authenticated user, calculates the initial SLA deadline, and publishes a TicketCreatedEvent for asynchronous queue evaluation.
       tags:
-        - Tickets (User)
+        - Tickets (Core)
       security:
         - bearerAuth: []
       requestBody:
@@ -55,52 +55,72 @@ paths:
               schema:
                 $ref: '#/components/schemas/TicketResponse'
         '400':
-          description: Invalid input data
+          description: Invalid input data (Shift-Left validation failure)
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
         '401':
           description: Unauthorized (missing or invalid JWT)
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
 
   /api/v1/tickets/queue:
     get:
-      summary: Get unassigned tickets queue
-      description: Returns a list of oldest pending tickets (FIFO queue view).
+      summary: Get unassigned tickets queue for a team
+      description: Returns a paginated FIFO queue of unassigned (NEW) tickets for a specific support team, ordered oldest-first. Requires internal privileges (AGENT or ADMIN).
       tags:
         - Tickets (Queue & Assignment)
       security:
         - bearerAuth: []
+      parameters:
+        - name: teamId
+          in: query
+          required: true
+          description: Target support team UUID
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
       responses:
         '200':
-          description: List of queued tickets
+          description: Paginated list of queued tickets
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/TicketResponse'
+                $ref: '#/components/schemas/PageResponseTicketResponse'
         '401':
           description: Unauthorized (missing or invalid JWT)
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
         '403':
-          description: Forbidden (requires ROLE_AGENT)
+          description: Forbidden (requires internal AGENT or ADMIN access level)
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
 
   /api/v1/tickets/{id}:
     get:
-      summary: Get ticket details
-      description: Returns full ticket details including comments, notes (for agents), and attachments.
+      summary: Get aggregated ticket details
+      description: Returns full ticket details including public comments and attachments. Internal actors (AGENT, ADMIN) also receive internal work notes and system events.
       tags:
         - Tickets (Core)
       security:
@@ -122,20 +142,26 @@ paths:
         '401':
           description: Unauthorized (missing or invalid JWT)
           content:
-            application/json:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '403':
+          description: Forbidden (user is neither the ticket owner, assigned agent, nor an admin)
+          content:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
         '404':
           description: Ticket not found
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
     patch:
       summary: Update ticket properties
-      description: Allows an agent or admin to modify ticket details (e.g., target team, priority).
+      description: Allows an assigned agent or administrator to partially update ticket details (title, priority, or target team). Changing the target team automatically unassigns the current agent.
       tags:
-        - Tickets (Agent Operations)
+        - Tickets (Workflow)
       security:
         - bearerAuth: []
       parameters:
@@ -161,36 +187,41 @@ paths:
         '400':
           description: Invalid input data
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
         '401':
           description: Unauthorized (missing or invalid JWT)
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
         '403':
-          description: Forbidden (requires ROLE_AGENT)
+          description: Forbidden (requires internal privileges and ticket assignment/admin role)
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
         '404':
           description: Ticket not found
           content:
-            application/json:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '409':
+          description: Conflict (ticket is CLOSED and cannot be modified)
+          content:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
 
   # =========================================
   # MODULE: TICKET WORKFLOW (STATE MACHINE)
   # =========================================
-
   /api/v1/tickets/{id}/assign:
     post:
-      summary: Assign ticket to agent
-      description: Agent manually picks up a ticket form the queue. Changes status from NEW to IN_PROGRESS
+      summary: Assign ticket to current agent
+      description: Agent manually picks up a NEW ticket. Transitions status from NEW to IN_PROGRESS.
       tags:
         - Tickets (Queue & Assignment)
       security:
@@ -212,32 +243,32 @@ paths:
         '401':
           description: Unauthorized (missing or invalid JWT)
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
         '403':
-          description: Forbidden (requires ROLE_AGENT)
+          description: Forbidden (requires internal AGENT or ADMIN access level)
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
         '404':
           description: Ticket not found
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
         '409':
-          description: Conflict (Ticket is already assigned or closed)
+          description: Conflict (only NEW tickets can be assigned)
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
 
   /api/v1/tickets/{id}/resolve:
     post:
       summary: Resolve a ticket
-      description: Changes ticket status to RESOLVED, stops the SLA timer, and adds a mandatory resolution note.
+      description: Transitions ticket status to RESOLVED, records the resolution timestamp, persists a SYSTEM_EVENT resolution note, and triggers agent capacity re-evaluation.
       tags:
         - Tickets (Workflow)
       security:
@@ -254,14 +285,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - resolutionNote
-              properties:
-                resolutionNote:
-                  type: string
-                  minLength: 10
-                  example: "Restarted the VPN server daemon and cleared user session cache. Connection restored."
+              $ref: '#/components/schemas/ResolutionRequest'
       responses:
         '200':
           description: Ticket successfully resolved
@@ -270,40 +294,40 @@ paths:
               schema:
                 $ref: '#/components/schemas/TicketResponse'
         '400':
-          description: Validation error
+          description: Validation error (resolution note too short or blank)
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
         '401':
           description: Unauthorized (missing or invalid JWT)
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
         '403':
-          description: Forbidden (requires ROLE_AGENT)
+          description: Forbidden (requires internal privileges and assignment/admin role)
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
         '404':
           description: Ticket not found
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
         '409':
-          description: Conflict (Invalid state transition)
+          description: Conflict (invalid state transition)
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
 
   /api/v1/tickets/{id}/close:
     post:
       summary: Close a ticket
-      description: User confirms the resolution and definitively closes the ticket.
+      description: Definitively closes the ticket (terminal CLOSED state). Once closed, all modifications and new communications are blocked.
       tags:
         - Tickets (Workflow)
       security:
@@ -317,7 +341,7 @@ paths:
             format: uuid
       responses:
         '200':
-          description: Ticket officialy closed
+          description: Ticket officially closed
           content:
             application/json:
               schema:
@@ -325,26 +349,32 @@ paths:
         '401':
           description: Unauthorized (missing or invalid JWT)
           content:
-            application/json:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '403':
+          description: Forbidden (user does not have ownership or assignment rights)
+          content:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
         '404':
           description: Ticket not found
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
         '409':
-          description: Conflict (Ticket cannot be closed from current status)
+          description: Conflict (ticket cannot be closed from current status)
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
 
   /api/v1/tickets/{id}/reopen:
     post:
-      summary: Reopen a ticket
-      description: Reopens a resolved ticket and sets its status back to IN_PROGRESS. The original SLA deadline is retained to prevent metric manipulation. Reopening a CLOSED ticket is strictly forbidden.
+      summary: Reopen a resolved ticket
+      description: Reopens a RESOLVED ticket and sets its status back to IN_PROGRESS while retaining the original SLA deadline. Reopening a CLOSED ticket is strictly forbidden.
       tags:
         - Tickets (Workflow)
       security:
@@ -366,32 +396,37 @@ paths:
         '401':
           description: Unauthorized (missing or invalid JWT)
           content:
-            application/json:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '403':
+          description: Forbidden (user does not have ownership or assignment rights)
+          content:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
         '404':
           description: Ticket not found
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
         '409':
-          description: Conflict (Ticket is already open or has been permanently CLOSED)
+          description: Conflict (only RESOLVED tickets can be reopened)
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
 
   # =========================================
   # MODULE: COMMUNICATION & ATTACHMENTS
   # =========================================
-
   /api/v1/tickets/{id}/comments:
     post:
       summary: Add a public comment
-      description: Adds a public comment visible to both the user and the agent.
-      tags: 
-        - Tickets (Communication)
+      description: Adds a public comment visible to both the ticket creator and support staff. Blocked if the ticket is CLOSED.
+      tags:
+        - Tickets (Communication & Attachments)
       security:
         - bearerAuth: []
       parameters:
@@ -406,7 +441,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ContentRequest'
+              $ref: '#/components/schemas/CommunicationCreateRequest'
       responses:
         '201':
           description: Comment successfully added
@@ -417,28 +452,34 @@ paths:
         '400':
           description: Invalid input data
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
         '401':
           description: Unauthorized (missing or invalid JWT)
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
         '404':
           description: Ticket not found
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: '#/components/schemas/ProblemDetail'                                                                                                                                                         
+                $ref: '#/components/schemas/ProblemDetail'
+        '409':
+          description: Conflict (cannot add communication to a CLOSED ticket)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
 
   /api/v1/tickets/{id}/work-notes:
     post:
       summary: Add an internal work note
-      description: Adds a work note visible only to agents and administrators.
+      description: Adds an internal work note visible only to support agents and administrators. Blocked if the ticket is CLOSED.
       tags:
-        - Tickets (Communication)
+        - Tickets (Communication & Attachments)
       security:
         - bearerAuth: []
       parameters:
@@ -453,7 +494,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ContentRequest'
+              $ref: '#/components/schemas/CommunicationCreateRequest'
       responses:
         '201':
           description: Work note successfully added
@@ -461,35 +502,47 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CommunicationResponse'
+        '400':
+          description: Invalid input data
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
         '401':
           description: Unauthorized (missing or invalid JWT)
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
         '403':
-          description: Forbidden (requires ROLE_AGENT)
+          description: Forbidden (requires internal AGENT or ADMIN privileges)
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
         '404':
           description: Ticket not found
           content:
-            application/json:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '409':
+          description: Conflict (cannot add communication to a CLOSED ticket)
+          content:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
 
-  /api/v1/tickets/{id}/attachments:
+  /api/v1/tickets/{ticketId}/attachments:
     post:
-      summary: Upload an attachments
-      description: Uploads a file (e.g., screenshot) and attaches it to the ticket.
+      summary: Upload an attachment to a ticket
+      description: Streams a binary file (max 5MB) to S3-compatible MinIO storage and records attachment metadata.
       tags:
-        - Tickets (Communication)
+        - Tickets (Communication & Attachments)
       security:
         - bearerAuth: []
       parameters:
-        - name: id
+        - name: ticketId
           in: path
           required: true
           schema:
@@ -501,81 +554,196 @@ paths:
           multipart/form-data:
             schema:
               type: object
+              required:
+                - file
               properties:
                 file:
                   type: string
                   format: binary
-                  description: "The file payload (image, pdf, log file)"
+                  description: "The binary file payload (e.g., screenshot, PDF, log file)"
       responses:
         '201':
           description: File successfully uploaded and attached
           content:
             application/json:
               schema:
-                $ref: '#components/schemas/AttachmentResponse'
+                $ref: '#/components/schemas/AttachmentResponse'
         '400':
-          description: Invalid input data
+          description: Invalid file payload (empty file or path traversal sequence)
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
         '401':
           description: Unauthorized (missing or invalid JWT)
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
         '404':
           description: Ticket not found
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
-        '415':
-          description: Unsupported Media Type
+        '409':
+          description: Conflict (ticket is CLOSED)
           content:
-            application/json:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+
+  /api/v1/tickets/{ticketId}/attachments/{attachmentId}:
+    delete:
+      summary: Delete a ticket attachment
+      description: Deletes the attachment object from MinIO storage and removes its metadata record. Restricted to the original attachment author on active tickets.
+      tags:
+        - Tickets (Communication & Attachments)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: ticketId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: attachmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Attachment successfully deleted
+        '400':
+          description: Bad Request (attachment does not belong to the specified ticket path)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: Unauthorized (missing or invalid JWT)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '403':
+          description: Forbidden (requester is not the owner of the attachment)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '404':
+          description: Ticket or Attachment not found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '409':
+          description: Conflict (ticket is CLOSED)
+          content:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
 
   # =========================================
-  # MODULE: AGENT & ADMIN OPERATIONS
+  # MODULE: AGENT OPERATIONS & ANALYTICS
   # =========================================
+  /api/v1/agents:
+    post:
+      summary: Provision a new agent profile
+      description: Initializes a domain AgentProfile (defaulting to OFFLINE status) linked to a Keycloak user UUID and a support Team. Requires ROLE_ADMIN.
+      tags:
+        - Administration
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentProfileCreateRequest'
+      responses:
+        '201':
+          description: Agent profile provisioned successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentProfileResponse'
+        '400':
+          description: Validation error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: Unauthorized (missing or invalid JWT)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '403':
+          description: Forbidden (requires ROLE_ADMIN)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '409':
+          description: Conflict (Agent profile with given ID already exists)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
 
   /api/v1/agents/me/tickets:
     get:
       summary: Get agent's assigned tickets
-      description: Returns the backlog of tickets currently assigned to the authenticated agent.
+      description: Returns a paginated backlog of active (IN_PROGRESS, RESOLVED) tickets currently assigned to the authenticated agent.
       tags:
         - Agent Operations
       security:
         - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
       responses:
         '200':
-          description: List of assigned tickets
+          description: Paginated list of assigned tickets
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/TicketResponse'
+                $ref: '#/components/schemas/PageResponseTicketResponse'
         '401':
           description: Unauthorized (missing or invalid JWT)
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
         '403':
-          description: Forbidden (requires ROLE_AGENT)
+          description: Forbidden (requires internal AGENT or ADMIN privileges)
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
 
   /api/v1/agents/me/status:
     put:
-      summary: Update agent availablitity status
-      description: Changing status to 'AVAILABLE' triggers queue auto-assignment.
+      summary: Update agent availability status
+      description: Updates the authenticated agent's status. Transitioning to 'AVAILABLE' publishes an AgentAvailableEvent, triggering asynchronous FIFO queue assignment.
       tags:
         - Agent Operations
       security:
@@ -592,26 +760,32 @@ paths:
         '400':
           description: Validation error
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
         '401':
           description: Unauthorized (missing or invalid JWT)
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
         '403':
-          description: Forbidden (requires ROLE_AGENT)
+          description: Forbidden (requires internal AGENT or ADMIN privileges)
           content:
-            application/json:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '404':
+          description: Agent profile not found
+          content:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
 
   /api/v1/agents/me/stats:
     get:
-      summary: Get agent's basic statistics
-      description: Returns the current count of open, resolved, and SLA-breached tickets for the agent.
+      summary: Get agent's performance statistics
+      description: Queries the CQRS PostgreSQL materialized view (agent_stats_mv) for the authenticated agent's open, resolved, and SLA-breached ticket counts.
       tags:
         - Analytics
       security:
@@ -626,20 +800,186 @@ paths:
         '401':
           description: Unauthorized (missing or invalid JWT)
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
         '403':
-          description: Forbidden (requires ROLE_AGENT)
+          description: Forbidden (requires internal AGENT or ADMIN privileges)
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
 
+  # =========================================
+  # MODULE: TEAMS (SUPPORT DEPARTMENTS)
+  # =========================================
+  /api/v1/teams:
+    get:
+      summary: List all support teams
+      description: Retrieves all support departments registered in the system.
+      tags:
+        - Teams
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of support teams
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TeamResponse'
+        '401':
+          description: Unauthorized (missing or invalid JWT)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+    post:
+      summary: Create a support team
+      description: Creates a new IT Support department. Requires ROLE_ADMIN.
+      tags:
+        - Teams
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TeamCreateRequest'
+      responses:
+        '201':
+          description: Team created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamResponse'
+        '400':
+          description: Validation error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: Unauthorized (missing or invalid JWT)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '403':
+          description: Forbidden (requires ROLE_ADMIN)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '409':
+          description: Conflict (Team with given name already exists)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+
+  /api/v1/teams/{id}:
+    get:
+      summary: Get team details by ID
+      description: Retrieves details of a specific support department.
+      tags:
+        - Teams
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Team details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamResponse'
+        '401':
+          description: Unauthorized (missing or invalid JWT)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '404':
+          description: Team not found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+    patch:
+      summary: Update a support team
+      description: Updates the name or description of an existing support team. Requires ROLE_ADMIN.
+      tags:
+        - Teams
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TeamUpdateRequest'
+      responses:
+        '200':
+          description: Team updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamResponse'
+        '400':
+          description: Validation error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: Unauthorized (missing or invalid JWT)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '403':
+          description: Forbidden (requires ROLE_ADMIN)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '404':
+          description: Team not found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '409':
+          description: Conflict (Team with given name already exists)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+
+  # =========================================
+  # MODULE: ADMINISTRATION (GLOBAL & SLA)
+  # =========================================
   /api/v1/admin/stats/agents:
     get:
       summary: Get global agent statistics
-      description: Returns system-wide performance metrics for all agents (Admin only).
+      description: Queries the CQRS materialized view (agent_stats_mv) for system-wide performance metrics across all agents. Requires ROLE_ADMIN.
       tags:
         - Analytics
       security:
@@ -656,54 +996,103 @@ paths:
         '401':
           description: Unauthorized (missing or invalid JWT)
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
         '403':
           description: Forbidden (requires ROLE_ADMIN)
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
-  
+
   /api/v1/admin/tickets:
     get:
-      summary: Get all tickets (Global view)
-      description: Returns a paginated list of all tickets in the system. Bypasses standard IDOR restrictions. Admin only.
+      summary: Get all tickets (Global Admin View)
+      description: Returns a paginated list of all tickets across the entire system. Requires ROLE_ADMIN.
       tags:
-        - Admin Operations
+        - Administration
       security:
         - bearerAuth: []
       parameters:
         - name: page
           in: query
-          description: Zero-based page index (0..N)
+          required: false
           schema:
             type: integer
             default: 0
-        - name: sort
+            minimum: 0
+        - name: size
           in: query
-          description: Sorting criteria in the format property, (asc|desc). Default is createdAt,desc.
+          required: false
           schema:
-            type: string
-            default: "createdAt, desc"
+            type: integer
+            default: 20
+            minimum: 1
       responses:
         '200':
-          description: Paginated list of all tickets
+          description: Paginated global list of tickets
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TicketPageResponse'
+                $ref: '#/components/schemas/PageResponseTicketResponse'
         '401':
           description: Unauthorized (missing or invalid JWT)
           content:
-            application/json:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
         '403':
           description: Forbidden (requires ROLE_ADMIN)
           content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+
+  /api/v1/admin/sla-configs/{priority}:
+    put:
+      summary: Update SLA resolution hours for a priority
+      description: Configures the target resolution hours for a given TicketPriority (LOW, MEDIUM, HIGH, CRITICAL). Requires ROLE_ADMIN.
+      tags:
+        - Administration
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: priority
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [LOW, MEDIUM, HIGH, CRITICAL]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SlaConfigurationUpdateRequest'
+      responses:
+        '200':
+          description: SLA configuration updated successfully
+          content:
             application/json:
+              schema:
+                $ref: '#/components/schemas/SlaConfigurationResponse'
+        '400':
+          description: Validation error (resolutionHours must be >= 1)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: Unauthorized (missing or invalid JWT)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '403':
+          description: Forbidden (requires ROLE_ADMIN)
+          content:
+            application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
 
@@ -713,14 +1102,12 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: JWT Access Token issued by the Keycloak authorization server.
-  
+      description: JWT Access Token issued by the Keycloak OAuth 2.0 Authorization Server.
+
   schemas:
-
-  # =========================================
-  # REQUEST PAYLOADS
-  # =========================================
-
+    # =========================================
+    # REQUEST PAYLOADS
+    # =========================================
     TicketCreateRequest:
       type: object
       required:
@@ -731,11 +1118,11 @@ components:
       properties:
         title:
           type: string
-          example: "Cannot connect to VPN"
           minLength: 5
+          example: "Cannot connect to corporate VPN"
         description:
           type: string
-          example: "Since this morning, I am unable to connect to the network using the VPN client. It returns error code 412"
+          example: "Since this morning, the VPN client fails with handshake timeout error 412."
         priority:
           type: string
           enum: [LOW, MEDIUM, HIGH, CRITICAL]
@@ -744,7 +1131,7 @@ components:
           type: string
           format: uuid
           example: "123e4567-e89b-12d3-a456-426614174000"
-    
+
     TicketPatchRequest:
       type: object
       properties:
@@ -758,6 +1145,41 @@ components:
           type: string
           format: uuid
 
+    ResolutionRequest:
+      type: object
+      required:
+        - resolutionNote
+      properties:
+        resolutionNote:
+          type: string
+          minLength: 10
+          example: "Restarted the VPN gateway daemon and flushed the user session cache."
+
+    CommunicationCreateRequest:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          minLength: 2
+          example: "Diagnostic log files have been attached to the ticket."
+
+    AgentProfileCreateRequest:
+      type: object
+      required:
+        - agentId
+        - teamId
+      properties:
+        agentId:
+          type: string
+          format: uuid
+          example: "11111111-2222-3333-4444-555555555555"
+        teamId:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+
     AgentStatusUpdateRequest:
       type: object
       required:
@@ -768,20 +1190,47 @@ components:
           enum: [OFFLINE, AVAILABLE, BUSY, AWAY]
           example: "AVAILABLE"
 
-    ContentRequest:
+    TeamCreateRequest:
       type: object
       required:
-        - content
+        - name
       properties:
-        content:
+        name:
           type: string
-          minLength: 2
-          example: "Log files have been provided"
+          minLength: 3
+          maxLength: 50
+          example: "Network Operations"
+        description:
+          type: string
+          maxLength: 255
+          example: "L2 support team responsible for routing, switching, and VPN infrastructure."
+
+    TeamUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 5
+          maxLength: 50
+          example: "Core Network Operations"
+        description:
+          type: string
+          maxLength: 255
+          example: "Updated department scope."
+
+    SlaConfigurationUpdateRequest:
+      type: object
+      required:
+        - resolutionHours
+      properties:
+        resolutionHours:
+          type: integer
+          minimum: 1
+          example: 4
 
     # =========================================
     # RESPONSE PAYLOADS
     # =========================================
-    
     TicketResponse:
       type: object
       properties:
@@ -792,10 +1241,10 @@ components:
         ticketNumber:
           type: string
           example: "INC0000001"
-          description: "Human-readable business identifier"
+          description: "Human-readable sequence-generated business identifier"
         title:
           type: string
-          example: "Cannot connect to VPN"
+          example: "Cannot connect to corporate VPN"
         status:
           type: string
           enum: [NEW, IN_PROGRESS, RESOLVED, CLOSED]
@@ -803,12 +1252,37 @@ components:
         createdAt:
           type: string
           format: date-time
-          example: "2026-06-13T18:30:00Z"
+          example: "2026-08-01T10:00:00Z"
         slaDeadline:
           type: string
           format: date-time
-          example: "2026-06-13T18:30:00Z"
-          description: "System-calculated Service Level Agreement deadline for the first response or resolution"
+          example: "2026-08-01T14:00:00Z"
+          description: "Calculated Service Level Agreement resolution deadline"
+
+    PageResponseTicketResponse:
+      type: object
+      description: "Framework-agnostic pagination wrapper for TicketResponse items"
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/TicketResponse'
+        pageNumber:
+          type: integer
+          example: 0
+        pageSize:
+          type: integer
+          example: 20
+        totalElements:
+          type: integer
+          format: int64
+          example: 42
+        totalPages:
+          type: integer
+          example: 3
+        isLast:
+          type: boolean
+          example: false
 
     TicketDetailsResponse:
       allOf:
@@ -820,6 +1294,7 @@ components:
             assignedAgentId:
               type: string
               format: uuid
+              nullable: true
             assignedTeamId:
               type: string
               format: uuid
@@ -828,6 +1303,10 @@ components:
               items:
                 $ref: '#/components/schemas/CommunicationResponse'
             workNotes:
+              type: array
+              items:
+                $ref: '#/components/schemas/CommunicationResponse'
+            systemEvents:
               type: array
               items:
                 $ref: '#/components/schemas/CommunicationResponse'
@@ -842,6 +1321,10 @@ components:
         id:
           type: string
           format: uuid
+        type:
+          type: string
+          enum: [PUBLIC_COMMENT, WORK_NOTE, SYSTEM_EVENT]
+          example: "PUBLIC_COMMENT"
         content:
           type: string
         authorId:
@@ -862,11 +1345,58 @@ components:
           example: "error_log.txt"
         fileUrl:
           type: string
-          example: "https://storage.local/attachments/987fcdeb-51a2.txt"
+          example: "http://localhost:9000/ticket-attachments/tickets/987fcdeb/error_log.txt"
         uploadedAt:
           type: string
           format: date-time
-    
+
+    AgentProfileResponse:
+      type: object
+      properties:
+        agentId:
+          type: string
+          format: uuid
+        teamId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [OFFLINE, AVAILABLE, BUSY, AWAY]
+          example: "OFFLINE"
+        updatedAt:
+          type: string
+          format: date-time
+
+    TeamResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: "Network Operations"
+        description:
+          type: string
+          example: "Handles VPN and router issues"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    SlaConfigurationResponse:
+      type: object
+      properties:
+        priority:
+          type: string
+          enum: [LOW, MEDIUM, HIGH, CRITICAL]
+          example: "HIGH"
+        resolutionHours:
+          type: integer
+          example: 4
+
     StatsResponse:
       type: object
       properties:
@@ -875,16 +1405,20 @@ components:
           format: uuid
         currentOpenTicketsCount:
           type: integer
-          example: 5
+          format: int64
+          example: 3
         allResolvedTicketsCount:
           type: integer
+          format: int64
           example: 120
         allSlaBreachedCount:
           type: integer
+          format: int64
           example: 2
 
     ProblemDetail:
       type: object
+      description: "RFC 7807 standardized error response payload"
       properties:
         type:
           type: string
@@ -898,31 +1432,12 @@ components:
           example: 400
         detail:
           type: string
-          example: "Validation failed for field 'title'."
+          example: "Validation failed for field 'title': Title must be at least 5 characters long"
         instance:
           type: string
           format: uri
           example: "/api/v1/tickets"
-
-    TicketPageResponse:
-      type: object
-      properties:
-        content:
-          type: array
-          items:
-            $ref: '#/components/schemas/TicketResponse'
-        pageNumber:
-          type: integer
-          example: 0
-        pageSize:
-          type: integer
-          example: 20
-        totalElements:
-          type: integer
-          example: 125
-        totalPages:
-          type: integer
-          example: 7
-        isLast:
-          type: boolean
-          example: false
+        timestamp:
+          type: string
+          format: date-time
+          example: "2026-08-01T12:00:00Z"
