@@ -11,9 +11,10 @@ import org.keycloak.admin.client.resource.UserResource;
 import org.keycloak.admin.client.resource.UsersResource;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
+import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -65,8 +66,12 @@ public class KeycloakIdentityGatewayTest extends BaseIntegrationTest {
         Optional<String> secondCall = identityGateway.getEmailById(userId);
 
         // then
+        assertThat(cacheManager).isInstanceOf(RedisCacheManager.class);
         assertThat(firstCall).isPresent().contains("test@ticketapp.local");
         assertThat(secondCall).isPresent().contains("test@ticketapp.local");
+
+        Cache cache = Objects.requireNonNull(cacheManager.getCache("identityCache"));
+        assertThat(cache.get(userId, String.class)).isEqualTo("test@ticketapp.local");
 
         then(usersResource).should(times(1)).get(userId.toString());
     }
@@ -85,6 +90,9 @@ public class KeycloakIdentityGatewayTest extends BaseIntegrationTest {
         // then
         assertThat(firstCall).isEmpty();
         assertThat(secondCall).isEmpty();
+
+        Cache cache = Objects.requireNonNull(cacheManager.getCache("identityCache"));
+        assertThat(cache.get(missingUserId)).isNull();
 
         then(usersResource).should(times(2)).get(missingUserId.toString());
     }
