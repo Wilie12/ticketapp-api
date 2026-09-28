@@ -24,7 +24,7 @@ public class CacheConfig {
                         RedisSerializationContext.SerializationPair.fromSerializer(RedisSerializer.string())
                 )
                 .serializeValuesWith(
-                        RedisSerializationContext.SerializationPair.fromSerializer(RedisSerializer.java())
+                        RedisSerializationContext.SerializationPair.fromSerializer(RedisSerializer.string())
                 );
 
         return RedisCacheManager.builder(redisConnectionFactory)
