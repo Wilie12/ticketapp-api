@@ -11,8 +11,13 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+import org.testcontainers.utility.DockerImageName;
 
+@Testcontainers
 @SpringBootTest
 @AutoConfigureMockMvc
 public class BaseIntegrationTest {
@@ -23,13 +28,13 @@ public class BaseIntegrationTest {
     @ServiceConnection
     static PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:16-alpine");
 
+    @ServiceConnection(name = "redis")
+    static GenericContainer<?> redis = new GenericContainer<>(DockerImageName.parse("redis:7.4-alpine"))
+            .withExposedPorts(6379);
+
+    @Container
     static KeycloakContainer keycloak = new KeycloakContainer("quay.io/keycloak/keycloak:26.0.7")
             .withRealmImportFile("keycloak/ticketapp-realm.json");
-
-    static {
-        postgres.start();
-        keycloak.start();
-    }
 
     @DynamicPropertySource
     static void configureProperties(DynamicPropertyRegistry registry) {
@@ -46,5 +51,4 @@ public class BaseIntegrationTest {
     protected JwtDecoder jwtDecoder;
     @MockitoBean
     protected MinioClient minioClient;
-
 }
