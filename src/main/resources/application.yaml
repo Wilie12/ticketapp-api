@@ -70,6 +70,10 @@ app:
       client-secret: ${KC_CLIENT_SECRET:default_secret}
   analytics:
     refresh-rate: 300000
+  rate-limit:
+    capacity: 50
+    refill-duration: 1m
+    expiration-jitter: 1m
 
 management:
     endpoints:
