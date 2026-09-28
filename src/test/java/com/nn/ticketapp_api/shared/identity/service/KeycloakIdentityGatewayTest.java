@@ -71,7 +71,7 @@ public class KeycloakIdentityGatewayTest extends BaseIntegrationTest {
         assertThat(secondCall).isPresent().contains("test@ticketapp.local");
 
         Cache cache = Objects.requireNonNull(cacheManager.getCache("identityCache"));
-        assertThat(cache.get(userId, String.class)).isEqualTo("test@ticketapp.local");
+        assertThat(cache.get(userId.toString(), String.class)).isEqualTo("test@ticketapp.local");
 
         then(usersResource).should(times(1)).get(userId.toString());
     }
@@ -92,7 +92,7 @@ public class KeycloakIdentityGatewayTest extends BaseIntegrationTest {
         assertThat(secondCall).isEmpty();
 
         Cache cache = Objects.requireNonNull(cacheManager.getCache("identityCache"));
-        assertThat(cache.get(missingUserId)).isNull();
+        assertThat(cache.get(missingUserId.toString())).isNull();
 
         then(usersResource).should(times(2)).get(missingUserId.toString());
     }
