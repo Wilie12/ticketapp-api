@@ -20,6 +20,8 @@ Acting as a stateless **OAuth 2.0 Resource Server** integrated with **Keycloak**
 * **S3-Compatible Object Storage & Path Traversal Guards:** Ticket attachments are streamed directly to **MinIO** via an abstracted `StorageService` interface, keeping binary payloads out of PostgreSQL. `AttachmentService` enforces strict filename sanitization, active-ticket state checks, and ownership verification prior to deletion.
 * **Edge Rate Limiting & RFC 7807 Error Contract:** `RateLimitInterceptor` implements the Token Bucket algorithm via **Bucket4j** (50 requests/minute per authenticated `sub` claim or client IP). All domain, validation, and rate-limit errors are handled by decentralized, controller-scoped `@RestControllerAdvice` components returning standardized **RFC 7807 (`ProblemDetail`)** payloads stamped with an injected `java.time.Clock`.
 * **Asynchronous HTML Notifications & Observability:** Lifecycle events trigger non-blocking HTML emails rendered via **Thymeleaf** (`EmailTemplateProcessor`) and dispatched through `JavaMailSender` on an isolated `ThreadPoolTaskExecutor`. Custom business counters (`tickets.created.total`, `tickets.resolved.total` tagged by `team_id`) are recorded via **Micrometer** (`TicketMetricsListener`), exposed through Spring Boot Actuator, scraped by **Prometheus**, and visualized in **Grafana**.
+* **Anti-Corruption Layer (ACL) & Distributed IAM Cache:** Personal Identifiable Information (PII) such as user email addresses is never duplicated in the local database. `KeycloakIdentityGateway` fetches recipient emails on demand via an OAuth 2.0 `client_credentials` service account and caches responses in **Redis** (`identityCache`) with a 1-hour TTL and UTF-8 string serialization, ensuring cache consistency across horizontally scaled application instances.
+* **Distributed Edge Rate Limiting & RFC 7807 Error Contract:** `RateLimitInterceptor` and `RateLimitingService` enforce the Token Bucket algorithm via **Bucket4j** and **Redis** (`LettuceBasedProxyManager` with atomic Compare-And-Swap operations and automatic TTL eviction). Limits (50 requests/minute per authenticated `sub` claim or client IP) are shared cluster-wide across all nodes. All domain, validation, and rate-limit errors return standardized **RFC 7807 (`ProblemDetail`)** payloads stamped with an injected `java.time.Clock`.
 
 ---
 
@@ -45,9 +47,9 @@ src/main/java/com/nn/ticketapp_api
 │   └── service/                    # TicketService & AgentStatsService
 └── shared/                         # Cross-cutting infrastructure
     ├── api/                        # GlobalExceptionHandler & framework-agnostic PageResponse<T>
-    ├── config/                     # Clock, Async ThreadPool, Caffeine Cache, Scheduling & WebMvc configs
+    ├── config/                     # Clock, Async ThreadPool, Redis CacheManager, Scheduling & WebMvc configs
     ├── identity/                   # Keycloak Admin Client ACL Gateway & IdentityProperties
-    ├── security/                   # OAuth2 SecurityFilterChain, @CurrentRequester resolver & Bucket4j rate limiter
+    ├── security/                   # OAuth2 SecurityFilterChain, @CurrentRequester resolver & Redis Bucket4j rate limiter
     └── storage/                    # S3/MinIO client auto-bucket initialization & StorageService adapter
 ```
 
@@ -56,15 +58,13 @@ src/main/java/com/nn/ticketapp_api
 ## Technology Stack
 
 * **Language & Runtime:** Java 21
-* **Framework:** Spring Boot 4.1.0 (WebMvc, Data JPA, Security OAuth2 Resource Server, Validation, Mail, Cache, Actuator)
-* **Database & Migrations:** PostgreSQL 16, Liquibase (Evolutionary Database Design, Sequences, Materialized Views)
+* **Framework:** Spring Boot 4.1.0 (WebMvc, Data JPA, Data Redis, Security OAuth2 Resource Server, Validation, Mail, Cache, Actuator)* **Database & Migrations:** PostgreSQL 16, Liquibase (Evolutionary Database Design, Sequences, Materialized Views)
 * **Identity & Access Management:** Keycloak 26.0.7 (OAuth 2.0 / OpenID Connect, Admin Client SDK)
 * **Object Storage:** MinIO 9.0.3 (S3-Compatible API)
-* **Resilience & Caching:** Bucket4j 8.10.1 (Token Bucket Rate Limiting), Caffeine 3.0.5
+* **Distributed Cache & Rate Limiting:** Redis 7.4, Bucket4j 8.10.1 (`bucket4j-redis` / Lettuce CAS `ProxyManager`)
 * **Mapping & Templating:** MapStruct 1.5.5 (Compile-Time Projections), Thymeleaf (HTML Emails), Lombok
 * **Observability:** Micrometer, Prometheus, Grafana
-* **Testing:** JUnit 5, BDDMockito, AssertJ, Spring Security Test, Testcontainers (`postgresql`, `testcontainers-keycloak`)
-* **Build & CI/CD:** Apache Maven (Maven Wrapper), GitHub Actions, Cloud Native Buildpacks
+* **Testing:** JUnit 5, BDDMockito, AssertJ, Spring Security Test, Testcontainers (`postgresql`, `redis`, `testcontainers-keycloak`)* **Build & CI/CD:** Apache Maven (Maven Wrapper), GitHub Actions, Cloud Native Buildpacks
 
 ---
 
@@ -147,6 +147,7 @@ Once started, the following services and web consoles are accessible on your hos
 | :--- | :--- | :--- | :--- |
 | **TicketApp API** | *(Host JVM)* | `8080` | `http://localhost:8080/swagger-ui.html` |
 | **PostgreSQL 16** | `ticketapp-postgres` | `5432` | `jdbc:postgresql://localhost:5432/ticketapp` |
+| **Redis 7.4** | `ticketapp-redis` | `6379` | `redis://localhost:6379` |
 | **Keycloak 26 IAM** | `ticketapp-keycloak` | `8081` | `http://localhost:8081` |
 | **MinIO Object Storage** | `ticketapp-minio` | `9000` (API), `9001` (UI) | `http://localhost:9001` |
 | **Mailpit (SMTP Catcher)** | `ticketapp-mailpit` | `1025` (SMTP), `8025` (UI) | `http://localhost:8025` |
@@ -161,8 +162,7 @@ The project enforces a strict **Shift-Left** testing standard structured in BDD 
 
 1. **Domain & Service Unit Tests:** Fast, isolated verification of `Ticket` state-machine invariants, pure `DefaultSlaPolicy` calculations, and service orchestration with deterministic `Clock.fixed(...)` time injection.
 2. **Web Slice Tests (`@WebMvcTest`):** All controller tests extend `BaseControllerTest`, verifying HTTP status codes, JSON serialization, Jakarta validation errors (`ProblemDetail`), and OAuth 2.0 role access rules using `SecurityTestUtils.validJwt(userId, role)`.
-3. **Persistence & Event Integration Tests (`@SpringBootTest`):** Extend `BaseIntegrationTest`, which implements the **Singleton Container Pattern** using **Testcontainers** to spin up real **PostgreSQL 16** (with full Liquibase migrations and `agent_stats_mv` materialized view) and **Keycloak 26** (pre-configured with `ticketapp-realm.json`) once per JVM test run.
-
+3. **Persistence & Event Integration Tests (`@SpringBootTest`):** Extend `BaseIntegrationTest`, which implements the **Singleton Container Pattern** using **Testcontainers** to spin up real **PostgreSQL 16** (with full Liquibase migrations and `agent_stats_mv` materialized view), **Redis 7.4** (for distributed caching and rate-limiting state), and **Keycloak 26** (pre-configured with `ticketapp-realm.json`) once per JVM test run.
 ### Running the Full Verification Suite
 
 Execute the deterministic build and test suite using the Maven Wrapper in batch mode:
