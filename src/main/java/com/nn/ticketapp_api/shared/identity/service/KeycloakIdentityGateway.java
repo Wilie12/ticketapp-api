@@ -20,7 +20,7 @@ public class KeycloakIdentityGateway implements IdentityGateway {
     private final IdentityProperties properties;
 
     @Override
-    @Cacheable(value = "identityCache", key = "#userId.toString()", unless = "#result == null")
+    @Cacheable(value = "identityCache", key = "#a0.toString()", unless = "#result == null")
     public Optional<String> getEmailById(UUID userId) {
         log.debug("Fetching email for user ID {} from Keycloak IAM", userId);
 
