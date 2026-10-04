@@ -13,7 +13,7 @@ Acting as a stateless **OAuth 2.0 Resource Server** integrated with **Keycloak**
 
 ## Key Architectural Highlights
 
-* **Event-Driven FIFO Ticket Queue & Concurrency Control:** Newly created tickets and agent availability transitions publish domain events (`TicketCreatedEvent`, `TicketResolvedEvent`, `AgentAvailableEvent`) processed asynchronously after transaction commit (`@TransactionalEventListener(phase = AFTER_COMMIT)`). The `TicketAssignmentOrchestrator` auto-assigns backlog items (up to 5 active tickets per agent) using native PostgreSQL pessimistic locking (`FOR UPDATE SKIP LOCKED`) to eliminate race conditions and deadlocks across concurrent worker threads.
+* **Distributed Event-Driven Architecture (RabbitMQ):** Local JVM thread pools have been replaced with **RabbitMQ 4.0**. Domain events (`TicketCreatedEvent`, `TicketResolvedEvent`, `AgentAvailableEvent`) are bridged to a `TopicExchange` exclusively after successful database commits (preventing Phantom Events). Background workloads (notifications, assignments) are processed asynchronously via `@RabbitListener` durable queues, utilizing the **Competing Consumers** pattern for safe horizontal scaling.
 * **CQRS Analytics Engine (Materialized Views):** Statistical dashboards bypass operational entity hydration entirely. `AgentStatsRepository` queries a pre-aggregated PostgreSQL Materialized View (`agent_stats_mv`) via Spring Data JPA Projections (`AgentStatsProjection`). A background scheduler (`AgentStatsRefreshScheduler`) refreshes the view periodically via `JdbcTemplate` using `REFRESH MATERIALIZED VIEW CONCURRENTLY`, preventing `EXCLUSIVE LOCK` contention on live read traffic.
 * **Stateless OAuth 2.0 Security & Centralized IDOR Protection:** Authentication is delegated to **Keycloak**. At the Edge layer, `KeycloakRealmRoleConverter` maps realm roles, while a custom `CurrentRequesterArgumentResolver` (`@CurrentRequester`) resolves the `RequesterContext` (encapsulating `UUID userId` and `AccessLevel`: `STANDARD`, `AGENT`, `ADMIN`). Resource mutations enforce a "Fail-Fast" security model (`requireInternal()` and centralized ownership/assignment validation in `TicketService.getValidatedTicket()`).
 * **S3-Compatible Object Storage & Path Traversal Guards:** Ticket attachments are streamed directly to **MinIO** via an abstracted `StorageService` interface, keeping binary payloads out of PostgreSQL. `AttachmentService` enforces strict filename sanitization, active-ticket state checks, and ownership verification prior to deletion.
@@ -60,7 +60,7 @@ src/main/java/com/nn/ticketapp_api
 * **Database & Migrations:** PostgreSQL 16, Liquibase (Evolutionary Database Design, Sequences, Materialized Views)
 * **Identity & Access Management:** Keycloak 26.0.7 (OAuth 2.0 / OpenID Connect, Admin Client SDK)
 * **Object Storage:** MinIO 9.0.3 (S3-Compatible API)
-* **Distributed Cache & Rate Limiting:** Redis 7.4, Bucket4j 8.10.1 (`bucket4j-redis` / Lettuce CAS `ProxyManager`)
+* **Distributed Cache, Broker & Rate Limiting:** Redis 7.4, Bucket4j 8.10.1, RabbitMQ 4.0 (AMQP)
 * **Mapping & Templating:** MapStruct 1.5.5 (Compile-Time Projections), Thymeleaf (HTML Emails), Lombok
 * **Observability:** Micrometer, Prometheus, Grafana
 * **Testing:** JUnit 5, BDDMockito, AssertJ, Spring Security Test, Testcontainers (`postgresql`, `redis`, `testcontainers-keycloak`)
@@ -148,6 +148,7 @@ Once started, the following services and web consoles are accessible on your hos
 | **TicketApp API** | *(Host JVM)* | `8080` | `http://localhost:8080/swagger-ui.html` |
 | **PostgreSQL 16** | `ticketapp-postgres` | `5432` | `jdbc:postgresql://localhost:5432/ticketapp` |
 | **Redis 7.4** | `ticketapp-redis` | `6379` | `redis://localhost:6379` |
+| **RabbitMQ Message Broker** | `ticketapp-rabbitmq` | `5672` (AMQP), `15672` (UI) | `http://localhost:15672` |
 | **Keycloak 26 IAM** | `ticketapp-keycloak` | `8081` | `http://localhost:8081` |
 | **MinIO Object Storage** | `ticketapp-minio` | `9000` (API), `9001` (UI) | `http://localhost:9001` |
 | **Mailpit (SMTP Catcher)** | `ticketapp-mailpit` | `1025` (SMTP), `8025` (UI) | `http://localhost:8025` |

@@ -8,10 +8,8 @@ import com.nn.ticketapp_api.ticket.domain.event.TicketResolvedEvent;
 import com.nn.ticketapp_api.ticket.repository.TicketRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Async;
+import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.event.TransactionPhase;
-import org.springframework.transaction.event.TransactionalEventListener;
 
 import java.util.Map;
 
@@ -25,10 +23,9 @@ public class NotificationEventListener {
     private final EmailSender emailSender;
     private final IdentityGateway identityGateway;
 
-    @Async("taskExecutor")
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @RabbitListener(queues = "${app.rabbitmq.queues.ticket-created-notification}")
     public void handleTicketCreated(TicketCreatedEvent event) {
-        log.debug("Processing asynchronous email notification for created ticket: {}", event.ticketId());
+        log.debug("Processing AMQP message for created ticket: {}", event.ticketId());
 
         ticketRepository.findById(event.ticketId()).ifPresent(ticket -> {
             identityGateway.getEmailById(ticket.getCreatorId()).ifPresent( email -> {
@@ -46,10 +43,9 @@ public class NotificationEventListener {
         });
     }
 
-    @Async("taskExecutor")
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @RabbitListener(queues = "${app.rabbitmq.queues.ticket-resolved-notification}")
     public void handleTicketResolved(TicketResolvedEvent event) {
-        log.debug("Processing asynchronous email notification for resolved ticket: {}", event.ticketId());
+        log.debug("Processing AMQP message for resolved ticket: {}", event.ticketId());
 
         ticketRepository.findById(event.ticketId()).ifPresent(ticket -> {
             identityGateway.getEmailById(ticket.getCreatorId()).ifPresent( email -> {

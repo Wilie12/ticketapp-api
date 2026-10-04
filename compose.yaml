@@ -118,12 +118,28 @@ services:
       - ticketapp-network
     restart: unless-stopped
 
+  rabbitmq:
+    image: rabbitmq:4.0-management-alpine
+    container_name: ticketapp-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-default_ticketapp_user}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-default_ticketapp_password}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - ticketapp-network
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   minio_data:
   prometheus_data:
   grafana_data:
   redis_data:
+  rabbitmq_data:
 
 networks:
   ticketapp-network:

@@ -14,6 +14,12 @@ spring:
       host: localhost
       port: 6379
 
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: ${RABBITMQ_USER:default_ticketapp_user}
+    password: ${RABBITMQ_PASSWORD:default_ticketapp_password}
+
   config:
     import: "optional:file:.env[.properties]"
 
@@ -74,6 +80,18 @@ app:
     capacity: 50
     refill-duration: 1m
     expiration-jitter: 1m
+  rabbitmq:
+    exchange: ticketapp.events.exchange
+    queues:
+      ticket-created-assignment: ticketapp.assignment.ticket-created.queue
+      ticket-resolved-assignment: ticketapp.assignment.ticket-resolved.queue
+      agent-available-assignment: ticketapp.assignment.agent-available.queue
+      ticket-created-notification: ticketapp.notification.ticket-created.queue
+      ticket-resolved-notification: ticketapp.notification.ticket-resolved.queue
+    routing-keys:
+      ticket-created: ticket.created
+      ticket-resolved: ticket.resolved
+      agent-available: agent.available
 
 management:
     endpoints:
