@@ -2,11 +2,13 @@ package com.nn.ticketapp_api.ticket.service;
 
 import com.nn.ticketapp_api.admin.service.SlaConfigurationService;
 import com.nn.ticketapp_api.shared.api.response.PageResponse;
+import com.nn.ticketapp_api.shared.audit.domain.CustomRevisionEntity;
 import com.nn.ticketapp_api.shared.security.domain.AccessLevel;
 import com.nn.ticketapp_api.shared.security.domain.RequesterContext;
 import com.nn.ticketapp_api.ticket.api.mapper.TicketMapper;
 import com.nn.ticketapp_api.ticket.api.request.TicketCreateRequest;
 import com.nn.ticketapp_api.ticket.api.request.TicketPatchRequest;
+import com.nn.ticketapp_api.ticket.api.response.TicketHistoryResponse;
 import com.nn.ticketapp_api.ticket.api.response.TicketResponse;
 import com.nn.ticketapp_api.ticket.domain.Ticket;
 import com.nn.ticketapp_api.ticket.domain.TicketStatus;
@@ -17,8 +19,14 @@ import com.nn.ticketapp_api.ticket.exception.TicketClosedException;
 import com.nn.ticketapp_api.ticket.exception.TicketNotFoundException;
 import com.nn.ticketapp_api.ticket.exception.TicketOwnershipException;
 import com.nn.ticketapp_api.ticket.repository.TicketRepository;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.hibernate.envers.AuditReader;
+import org.hibernate.envers.AuditReaderFactory;
+import org.hibernate.envers.RevisionType;
+import org.hibernate.envers.query.AuditEntity;
+import org.hibernate.envers.query.AuditQuery;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -43,6 +51,7 @@ public class TicketService {
     private final SlaPolicy slaPolicy;
     private final SlaConfigurationService slaConfigurationService;
     private final Clock clock;
+    private final EntityManager entityManager;
 
     @Transactional
     public TicketResponse createTicket(TicketCreateRequest ticketCreateRequest, UUID creatorId) {
@@ -240,6 +249,40 @@ public class TicketService {
             ticket.assignToAgent(agentId);
             log.info("Auto-assigned ticket {} from queue to agent {}", ticket.getTicketNumber(), agentId);
         }
+    }
+
+    @Transactional(readOnly = true)
+    public List<TicketHistoryResponse> getTicketHistory(UUID ticketId, RequesterContext requesterContext) {
+        log.debug("Retrieving ticket history for ticket {} by user {}", ticketId, requesterContext.userId());
+
+        getValidatedTicket(ticketId, requesterContext);
+
+        AuditReader auditReader = AuditReaderFactory.get(entityManager);
+        AuditQuery query = auditReader.createQuery()
+                .forRevisionsOfEntity(Ticket.class, false, false)
+                .add(AuditEntity.id().eq(ticketId));
+
+        List<Object[]> results  = query.getResultList();
+
+        return results.stream().map( result -> {
+            Ticket auditedTicket = (Ticket) result[0];
+            CustomRevisionEntity revisionEntity = (CustomRevisionEntity) result[1];
+            RevisionType revisionType = (RevisionType) result[2];
+
+            return new TicketHistoryResponse(
+                    auditedTicket.getId(),
+                    auditedTicket.getTicketNumber(),
+                    auditedTicket.getTitle(),
+                    auditedTicket.getDescription(),
+                    auditedTicket.getPriority(),
+                    auditedTicket.getStatus(),
+                    auditedTicket.getAssignedAgentId(),
+                    auditedTicket.getAssignedTeamId(),
+                    revisionType.name(),
+                    revisionEntity.getAuthorId(),
+                    Instant.ofEpochMilli(revisionEntity.getTimestamp())
+            );
+        }).toList();
     }
 
     public void ensureTicketIsActive(UUID ticketId) {
