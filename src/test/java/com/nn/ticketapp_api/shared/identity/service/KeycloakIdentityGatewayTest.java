@@ -5,7 +5,6 @@ import jakarta.ws.rs.NotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.keycloak.admin.client.Keycloak;
 import org.keycloak.admin.client.resource.RealmResource;
 import org.keycloak.admin.client.resource.UserResource;
 import org.keycloak.admin.client.resource.UsersResource;
@@ -14,7 +13,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.data.redis.cache.RedisCacheManager;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -32,9 +30,6 @@ public class KeycloakIdentityGatewayTest extends BaseIntegrationTest {
     private IdentityGateway identityGateway;
     @Autowired
     private CacheManager cacheManager;
-
-    @MockitoBean
-    private Keycloak keycloakClient;
 
     private UsersResource usersResource;
 
