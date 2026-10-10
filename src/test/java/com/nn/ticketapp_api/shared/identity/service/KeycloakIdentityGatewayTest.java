@@ -35,6 +35,11 @@ public class KeycloakIdentityGatewayTest extends BaseIntegrationTest {
 
     @BeforeEach
     void setup() {
+        Cache cache = cacheManager.getCache("identityCache");
+        if (cache != null) {
+            cache.clear();
+        }
+
         RealmResource realmResource = mock(RealmResource.class);
         usersResource = mock(UsersResource.class);
 

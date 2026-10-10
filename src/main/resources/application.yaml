@@ -7,7 +7,8 @@ spring:
 
   cache:
     type: redis
-    cache-names: identityCache
+    cache-names:
+      - identityCache
 
   data:
     redis:
