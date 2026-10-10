@@ -35,7 +35,10 @@ public class KeycloakIdentityGatewayTest extends BaseIntegrationTest {
 
     @BeforeEach
     void setup() {
-        Objects.requireNonNull(cacheManager.getCache("identityCache")).clear();
+        Cache cache = cacheManager.getCache("identityCache");
+        if (cache != null) {
+            cache.clear();
+        }
 
         RealmResource realmResource = mock(RealmResource.class);
         usersResource = mock(UsersResource.class);
@@ -48,7 +51,7 @@ public class KeycloakIdentityGatewayTest extends BaseIntegrationTest {
     @DisplayName("Should retrieve email from Keycloak and actively cache subsequent requests")
     void shouldFetchEmailAndCacheResult() {
         // given
-        UUID userId = UUID.fromString("11111111-1111-1111-1111-111111111111");
+        UUID userId = UUID.randomUUID();
         UserResource userResource = mock(UserResource.class);
         UserRepresentation userRepresentation = mock(UserRepresentation.class);
 
