@@ -18,7 +18,7 @@ paths:
       tags:
         - Tickets (Core)
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       responses:
         '200':
           description: A list of user's tickets
@@ -40,7 +40,7 @@ paths:
       tags:
         - Tickets (Core)
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       requestBody:
         required: true
         content:
@@ -74,7 +74,7 @@ paths:
       tags:
         - Tickets (Queue & Assignment)
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       parameters:
         - name: teamId
           in: query
@@ -124,7 +124,7 @@ paths:
       tags:
         - Tickets (Core)
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       parameters:
         - name: id
           in: path
@@ -163,7 +163,7 @@ paths:
       tags:
         - Tickets (Workflow)
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       parameters:
         - name: id
           in: path
@@ -225,7 +225,7 @@ paths:
       tags:
         - Tickets (Queue & Assignment)
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       parameters:
         - name: id
           in: path
@@ -272,7 +272,7 @@ paths:
       tags:
         - Tickets (Workflow)
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       parameters:
         - name: id
           in: path
@@ -331,7 +331,7 @@ paths:
       tags:
         - Tickets (Workflow)
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       parameters:
         - name: id
           in: path
@@ -378,7 +378,7 @@ paths:
       tags:
         - Tickets (Workflow)
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       parameters:
         - name: id
           in: path
@@ -418,6 +418,49 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
 
+  /api/v1/tickets/{id}/history:
+    get:
+      summary: Get ticket revision history
+      description: Retrieves the immutable Envers audit trail for a specific ticket, detailing who modified the resource, when, and what changed.
+      tags:
+        - Tickets (Workflow)
+      security:
+        - bearerAuth: [ ]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Ordered list of historical ticket revisions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TicketHistoryResponse'
+        '401':
+          description: Unauthorized (missing or invalid JWT)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '403':
+          description: Forbidden (requires ownership, assignment, or ADMIN role)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '404':
+          description: Ticket not found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+
   # =========================================
   # MODULE: COMMUNICATION & ATTACHMENTS
   # =========================================
@@ -428,7 +471,7 @@ paths:
       tags:
         - Tickets (Communication & Attachments)
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       parameters:
         - name: id
           in: path
@@ -481,7 +524,7 @@ paths:
       tags:
         - Tickets (Communication & Attachments)
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       parameters:
         - name: id
           in: path
@@ -540,7 +583,7 @@ paths:
       tags:
         - Tickets (Communication & Attachments)
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       parameters:
         - name: ticketId
           in: path
@@ -600,7 +643,7 @@ paths:
       tags:
         - Tickets (Communication & Attachments)
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       parameters:
         - name: ticketId
           in: path
@@ -658,7 +701,7 @@ paths:
       tags:
         - Administration
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       requestBody:
         required: true
         content:
@@ -704,7 +747,7 @@ paths:
       tags:
         - Agent Operations
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       parameters:
         - name: page
           in: query
@@ -747,7 +790,7 @@ paths:
       tags:
         - Agent Operations
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       requestBody:
         required: true
         content:
@@ -789,7 +832,7 @@ paths:
       tags:
         - Analytics
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       responses:
         '200':
           description: Agent statistics payload
@@ -820,7 +863,7 @@ paths:
       tags:
         - Teams
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       responses:
         '200':
           description: List of support teams
@@ -842,7 +885,7 @@ paths:
       tags:
         - Teams
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       requestBody:
         required: true
         content:
@@ -888,7 +931,7 @@ paths:
       tags:
         - Teams
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       parameters:
         - name: id
           in: path
@@ -921,7 +964,7 @@ paths:
       tags:
         - Teams
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       parameters:
         - name: id
           in: path
@@ -983,7 +1026,7 @@ paths:
       tags:
         - Analytics
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       responses:
         '200':
           description: Global statistics payload
@@ -1013,7 +1056,7 @@ paths:
       tags:
         - Administration
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       parameters:
         - name: page
           in: query
@@ -1056,14 +1099,14 @@ paths:
       tags:
         - Administration
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       parameters:
         - name: priority
           in: path
           required: true
           schema:
             type: string
-            enum: [LOW, MEDIUM, HIGH, CRITICAL]
+            enum: [ LOW, MEDIUM, HIGH, CRITICAL ]
       requestBody:
         required: true
         content:
@@ -1125,7 +1168,7 @@ components:
           example: "Since this morning, the VPN client fails with handshake timeout error 412."
         priority:
           type: string
-          enum: [LOW, MEDIUM, HIGH, CRITICAL]
+          enum: [ LOW, MEDIUM, HIGH, CRITICAL ]
           example: "HIGH"
         targetTeamId:
           type: string
@@ -1140,7 +1183,7 @@ components:
           minLength: 5
         priority:
           type: string
-          enum: [LOW, MEDIUM, HIGH, CRITICAL]
+          enum: [ LOW, MEDIUM, HIGH, CRITICAL ]
         targetTeamId:
           type: string
           format: uuid
@@ -1187,7 +1230,7 @@ components:
       properties:
         status:
           type: string
-          enum: [OFFLINE, AVAILABLE, BUSY, AWAY]
+          enum: [ OFFLINE, AVAILABLE, BUSY, AWAY ]
           example: "AVAILABLE"
 
     TeamCreateRequest:
@@ -1247,7 +1290,7 @@ components:
           example: "Cannot connect to corporate VPN"
         status:
           type: string
-          enum: [NEW, IN_PROGRESS, RESOLVED, CLOSED]
+          enum: [ NEW, IN_PROGRESS, RESOLVED, CLOSED ]
           example: "NEW"
         createdAt:
           type: string
@@ -1323,7 +1366,7 @@ components:
           format: uuid
         type:
           type: string
-          enum: [PUBLIC_COMMENT, WORK_NOTE, SYSTEM_EVENT]
+          enum: [ PUBLIC_COMMENT, WORK_NOTE, SYSTEM_EVENT ]
           example: "PUBLIC_COMMENT"
         content:
           type: string
@@ -1361,7 +1404,7 @@ components:
           format: uuid
         status:
           type: string
-          enum: [OFFLINE, AVAILABLE, BUSY, AWAY]
+          enum: [ OFFLINE, AVAILABLE, BUSY, AWAY ]
           example: "OFFLINE"
         updatedAt:
           type: string
@@ -1391,7 +1434,7 @@ components:
       properties:
         priority:
           type: string
-          enum: [LOW, MEDIUM, HIGH, CRITICAL]
+          enum: [ LOW, MEDIUM, HIGH, CRITICAL ]
           example: "HIGH"
         resolutionHours:
           type: integer
@@ -1441,3 +1484,45 @@ components:
           type: string
           format: date-time
           example: "2026-08-01T12:00:00Z"
+
+    TicketHistoryResponse:
+      type: object
+      properties:
+        ticketId:
+          type: string
+          format: uuid
+        ticketNumber:
+          type: string
+          example: "INC0000001"
+        title:
+          type: string
+          example: "Cannot connect to corporate VPN"
+        description:
+          type: string
+          example: "Since this morning, the VPN client fails with handshake timeout error 412."
+        priority:
+            type: string
+            enum: [ LOW, MEDIUM, HIGH, CRITICAL ]
+        status:
+            type: string
+            enum: [ NEW, IN_PROGRESS, RESOLVED, CLOSED ]
+        assignedAgentId:
+          type: string
+          format: uuid
+          nullable: true
+        assignedTeamId:
+          type: string
+          format: uuid
+          nullable: true
+        revisionType:
+          type: string
+          enum: [ ADD, MOD, DEL]
+          description: "Type of audit revision"
+        authorId:
+          type: string
+          format: uuid
+          description: "UUID of the user who made the change (extracted from JWT)"
+        revisionTimestamp:
+          type: string
+          format: date-time
+          description: "Timestamp of the revision"
