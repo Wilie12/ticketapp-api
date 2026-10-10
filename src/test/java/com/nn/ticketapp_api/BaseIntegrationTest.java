@@ -5,6 +5,7 @@ import dasniko.testcontainers.keycloak.KeycloakContainer;
 import io.minio.MinioClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.keycloak.admin.client.Keycloak;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
@@ -45,8 +46,6 @@ public abstract class BaseIntegrationTest {
     @Container
     static KeycloakContainer keycloak = new KeycloakContainer("quay.io/keycloak/keycloak:26.0.7")
             .withRealmImportFile("keycloak/ticketapp-realm.json");
-    @MockitoBean
-    private RateLimitInterceptor rateLimitInterceptor;
 
     @DynamicPropertySource
     static void configureProperties(DynamicPropertyRegistry registry) {
@@ -65,6 +64,10 @@ public abstract class BaseIntegrationTest {
     protected MinioClient minioClient;
     @MockitoBean
     protected Keycloak keycloakClient;
+    @MockitoBean
+    protected RateLimitInterceptor rateLimitInterceptor;
+    @MockitoBean
+    protected RabbitTemplate rabbitTemplate;
 
     @BeforeEach
     void setupRateLimitMock() throws Exception {
