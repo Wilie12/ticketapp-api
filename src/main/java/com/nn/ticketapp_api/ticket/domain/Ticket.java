@@ -5,12 +5,14 @@ import com.nn.ticketapp_api.ticket.exception.TicketClosedException;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.envers.Audited;
 
 import java.time.Instant;
 import java.util.UUID;
 
 @Entity
 @Table(name = "tickets")
+@Audited
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor(access = AccessLevel.PRIVATE)

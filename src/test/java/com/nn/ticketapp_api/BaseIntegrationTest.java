@@ -1,7 +1,10 @@
 package com.nn.ticketapp_api;
 
+import com.nn.ticketapp_api.shared.security.ratelimit.RateLimitInterceptor;
 import dasniko.testcontainers.keycloak.KeycloakContainer;
 import io.minio.MinioClient;
+import org.junit.jupiter.api.BeforeEach;
+import org.keycloak.admin.client.Keycloak;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
@@ -18,10 +21,13 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.rabbitmq.RabbitMQContainer;
 import org.testcontainers.utility.DockerImageName;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.given;
+
 @Testcontainers
 @SpringBootTest
 @AutoConfigureMockMvc
-public class BaseIntegrationTest {
+public abstract class BaseIntegrationTest {
 
     @Autowired
     protected MockMvc mockMvc;
@@ -39,6 +45,8 @@ public class BaseIntegrationTest {
     @Container
     static KeycloakContainer keycloak = new KeycloakContainer("quay.io/keycloak/keycloak:26.0.7")
             .withRealmImportFile("keycloak/ticketapp-realm.json");
+    @MockitoBean
+    private RateLimitInterceptor rateLimitInterceptor;
 
     @DynamicPropertySource
     static void configureProperties(DynamicPropertyRegistry registry) {
@@ -55,4 +63,11 @@ public class BaseIntegrationTest {
     protected JwtDecoder jwtDecoder;
     @MockitoBean
     protected MinioClient minioClient;
+    @MockitoBean
+    protected Keycloak keycloakClient;
+
+    @BeforeEach
+    void setupRateLimitMock() throws Exception {
+        given(rateLimitInterceptor.preHandle(any(), any(), any())).willReturn(true);
+    }
 }

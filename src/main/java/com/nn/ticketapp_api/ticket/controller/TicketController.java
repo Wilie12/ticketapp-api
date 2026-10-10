@@ -7,6 +7,7 @@ import com.nn.ticketapp_api.ticket.api.request.ResolutionRequest;
 import com.nn.ticketapp_api.ticket.api.request.TicketCreateRequest;
 import com.nn.ticketapp_api.ticket.api.request.TicketPatchRequest;
 import com.nn.ticketapp_api.ticket.api.response.TicketDetailsResponse;
+import com.nn.ticketapp_api.ticket.api.response.TicketHistoryResponse;
 import com.nn.ticketapp_api.ticket.api.response.TicketResponse;
 import com.nn.ticketapp_api.ticket.facade.TicketFacade;
 import com.nn.ticketapp_api.ticket.service.TicketService;
@@ -142,5 +143,16 @@ public class TicketController {
         );
 
         return ticketService.getUnassignedQueue(teamId, pageable);
+    }
+
+    @GetMapping("/{id}/history")
+    @ResponseStatus(HttpStatus.OK)
+    public List<TicketHistoryResponse> getTicketHistory(
+            @PathVariable(name = "id") UUID ticketId,
+            @CurrentRequester RequesterContext requesterContext
+    ) {
+        log.debug("Received request to fetch history for ticket {} by user: {}", ticketId, requesterContext.userId());
+
+        return ticketService.getTicketHistory(ticketId, requesterContext);
     }
 }

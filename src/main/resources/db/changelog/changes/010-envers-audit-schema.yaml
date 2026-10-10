@@ -1,0 +1,77 @@
+databaseChangeLog:
+  - changeSet:
+      id: 010-envers-audit-schema
+      author: Wilie12
+      changes:
+        - createSequence:
+            sequenceName: revinfo_seq
+            startValue: 1
+            incrementBy: 1
+        - createTable:
+            tableName: revinfo
+            columns:
+              - column:
+                  name: rev
+                  type: INT
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: revtstmp
+                  type: BIGINT
+              - column:
+                  name: author_id
+                  type: UUID
+        - createTable:
+            tableName: tickets_aud
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: rev
+                  type: INT
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+                    references: revinfo(rev)
+                    foreignKeyName: fk_tickets_aud_revinfo
+              - column:
+                  name: revtype
+                  type: SMALLINT
+              - column:
+                  name: ticket_number
+                  type: VARCHAR(50)
+              - column:
+                  name: title
+                  type: VARCHAR(255)
+              - column:
+                  name: description
+                  type: TEXT
+              - column:
+                  name: priority
+                  type: VARCHAR(50)
+              - column:
+                  name: status
+                  type: VARCHAR(50)
+              - column:
+                  name: creator_id
+                  type: UUID
+              - column:
+                  name: assigned_agent_id
+                  type: UUID
+              - column:
+                  name: assigned_team_id
+                  type: UUID
+              - column:
+                  name: created_at
+                  type: TIMESTAMP WITH TIMEZONE
+              - column:
+                  name: sla_deadline
+                  type: TIMESTAMP WITH TIMEZONE
+              - column:
+                  name: resolved_at
+                  type: TIMESTAMP WITH TIMEZONE
